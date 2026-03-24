@@ -106,4 +106,4 @@
 - [ ] 10.3 Test API endpoints via curl or Postman: list, filter by label, trigger digest
 - [ ] 10.4 Verify dashboard loads feed, filters work, and digest button sends notification
 - [ ] 10.5 Confirm digest email/webhook received with correct post data
-- [ ] 10.6 Verify rate limit handling by simulating 429 responses in integration test
+- [x] 10.6 Verify rate limit handling by simulating 429 responses in integration test — 8 integration tests added (tests/test_rate_limit_integration.py), 68/68 passed
