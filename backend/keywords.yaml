@@ -1,0 +1,58 @@
+high_weight:
+  agent:
+    - ai agent
+    - ai agents
+    - agent skill
+    - agent skills
+    - multi-agent
+    - multi agent
+    - agentic
+    - autonomous agent
+    - tool use
+    - tool calling
+    - function calling
+    - mcp
+    - model context protocol
+    - langchain
+    - autogen
+    - crewai
+    - smolagents
+    - rag
+    - retrieval augmented
+  tool:
+    - langchain
+    - llamaindex
+    - llama index
+    - semantic kernel
+    - dspy
+    - instructor
+    - guidance
+
+standard_weight:
+  model:
+    - llm
+    - large language model
+    - gpt
+    - claude
+    - gemini
+    - mistral
+    - llama
+    - qwen
+    - fine-tuning
+    - fine tuning
+    - rlhf
+    - sft
+    - alignment
+  ai-general:
+    - artificial intelligence
+    - openai
+    - anthropic
+    - google deepmind
+    - deepmind
+    - hugging face
+    - huggingface
+    - ai research
+    - ai model
+    - foundation model
+
+threshold: 5

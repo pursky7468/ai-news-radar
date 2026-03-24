@@ -1,0 +1,23 @@
+"""Digest trigger endpoint."""
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+
+from app.api.auth import require_api_key
+from app.api.deps import get_db, get_news_store
+from app.config import settings
+from app.notifier.digest_notifier import DigestNotifier
+from app.schemas import DigestTriggerResult
+
+router = APIRouter(dependencies=[Depends(require_api_key)])
+
+
+@router.post("/api/digest/trigger", response_model=DigestTriggerResult)
+def trigger_digest(db: Session = Depends(get_db)):
+    store = get_news_store(db)
+    notifier = DigestNotifier(
+        news_store=store,
+        smtp_config=settings.smtp_config,
+        webhook_url=settings.digest_webhook_url,
+    )
+    summary = notifier.run()
+    return DigestTriggerResult(**summary)
