@@ -103,7 +103,7 @@
 
 - [x] 10.1 Run full test suite (`pytest --cov` backend, `jest --coverage` frontend); confirm all tests pass and coverage >= 80% — backend: 60/60 passed, 91% coverage
 - [ ] 10.2 Run full pipeline manually against live X API: fetch real posts, score with TF-IDF scorer, verify DB entries and score distribution
-- [ ] 10.3 Test API endpoints via curl or Postman: list, filter by label, trigger digest
+- [x] 10.3 Test API endpoints via curl or Postman: list, filter by label, trigger digest — all 11 endpoints verified: health, auth (401), list, filter by label/score/keyword, pagination, get-by-id, 404, digest trigger
 - [ ] 10.4 Verify dashboard loads feed, filters work, and digest button sends notification
 - [ ] 10.5 Confirm digest email/webhook received with correct post data
 - [x] 10.6 Verify rate limit handling by simulating 429 responses in integration test — 8 integration tests added (tests/test_rate_limit_integration.py), 68/68 passed
