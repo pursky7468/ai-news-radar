@@ -10,16 +10,16 @@ from app.pipeline.fetch_pipeline import FetchPipeline
 @pytest.fixture
 def mock_fetcher():
     m = MagicMock()
-    m.fetch_by_keywords.return_value = [
+    m.fetch.return_value = [
         {
-            "x_post_id": "t1",
+            "source": "hackernews",
+            "external_id": "t1",
             "author_handle": "user_a",
             "content": "AI agent orchestration using tool calling",
-            "url": "https://x.com/i/web/status/t1",
+            "url": "https://news.ycombinator.com/item?id=t1",
             "posted_at": datetime(2026, 3, 1, tzinfo=timezone.utc),
         }
     ]
-    m.fetch_from_accounts.return_value = []
     return m
 
 
@@ -40,13 +40,12 @@ def pipeline(news_store, mock_fetcher, mock_scorer):
         news_store=news_store,
         fetcher=mock_fetcher,
         scorer=mock_scorer,
-        keywords=["ai agent"],
     )
 
 
 def test_pipeline_runs_fetch_then_score_then_store(pipeline, news_store, mock_fetcher, mock_scorer):
     pipeline.run()
-    mock_fetcher.fetch_by_keywords.assert_called_once()
+    mock_fetcher.fetch.assert_called_once()
     mock_scorer.score_post.assert_called_once()
     posts = news_store.query_posts()
     assert len(posts) == 1
@@ -62,13 +61,11 @@ def test_pipeline_logs_counts(pipeline, caplog):
 
 def test_pipeline_handles_empty_fetch(news_store, mock_scorer):
     fetcher = MagicMock()
-    fetcher.fetch_by_keywords.return_value = []
-    fetcher.fetch_from_accounts.return_value = []
+    fetcher.fetch.return_value = []
     pl = FetchPipeline(
         news_store=news_store,
         fetcher=fetcher,
         scorer=mock_scorer,
-        keywords=["ai agent"],
     )
     pl.run()  # should not raise
     assert news_store.query_posts() == []

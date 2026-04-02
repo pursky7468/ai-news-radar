@@ -2,23 +2,34 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 
 class Post(BaseModel):
     id: int
-    x_post_id: str
+    source: str
+    external_id: str
     author_handle: str
     content: str
     url: str
     posted_at: datetime
     fetched_at: datetime
     relevance_score: Optional[float] = None
+    points: Optional[int] = None
     is_relevant: bool
     labels: List[str]
     digest_sent: bool
+    discussion_url: Optional[str] = None
 
     model_config = {"from_attributes": True}
+
+    @model_validator(mode="after")
+    def _compute_discussion_url(self) -> "Post":
+        if self.source == "hackernews" and self.discussion_url is None:
+            self.discussion_url = (
+                f"https://news.ycombinator.com/item?id={self.external_id}"
+            )
+        return self
 
 
 class PaginatedNewsResponse(BaseModel):

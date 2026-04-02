@@ -43,17 +43,20 @@ def auth_headers():
     return {"X-API-Key": settings.api_key}
 
 
-def _insert_post(db_session, x_post_id: str, score: float = 7.0, labels=None, is_relevant=True):
+def _insert_post(db_session, external_id: str, score: float = 7.0, labels=None,
+                 is_relevant=True, source: str = "hackernews", points=None):
     store = NewsStore(session=db_session)
     store.upsert_post({
-        "x_post_id": x_post_id,
+        "source": source,
+        "external_id": external_id,
         "author_handle": "tester",
-        "content": f"AI agent post {x_post_id}",
-        "url": f"https://x.com/i/web/status/{x_post_id}",
+        "content": f"AI agent post {external_id}",
+        "url": f"https://news.ycombinator.com/item?id={external_id}",
         "posted_at": datetime(2026, 3, 1, tzinfo=timezone.utc),
         "relevance_score": score,
         "is_relevant": is_relevant,
         "labels": labels or ["ai-agent"],
+        "points": points,
     })
 
 
@@ -127,7 +130,7 @@ def test_news_list_filter_by_label(client, auth_headers, db_session):
     assert resp.status_code == 200
     data = resp.json()
     assert data["total"] == 1
-    assert data["items"][0]["x_post_id"] == "t_agent"
+    assert data["items"][0]["external_id"] == "t_agent"
 
 
 def test_news_list_filter_by_min_score(client, auth_headers, db_session):
@@ -142,20 +145,22 @@ def test_news_list_filter_by_min_score(client, auth_headers, db_session):
 def test_news_list_filter_by_keyword(client, auth_headers, db_session):
     store = NewsStore(session=db_session)
     store.upsert_post({
-        "x_post_id": "kw1",
+        "source": "hackernews",
+        "external_id": "kw1",
         "author_handle": "a",
         "content": "multi-agent orchestration with tools",
-        "url": "https://x.com/i/web/status/kw1",
+        "url": "https://news.ycombinator.com/item?id=kw1",
         "posted_at": datetime(2026, 3, 1, tzinfo=timezone.utc),
         "relevance_score": 8.0,
         "is_relevant": True,
         "labels": ["ai-agent"],
     })
     store.upsert_post({
-        "x_post_id": "kw2",
+        "source": "hackernews",
+        "external_id": "kw2",
         "author_handle": "b",
         "content": "cooking pasta at home",
-        "url": "https://x.com/i/web/status/kw2",
+        "url": "https://news.ycombinator.com/item?id=kw2",
         "posted_at": datetime(2026, 3, 1, tzinfo=timezone.utc),
         "relevance_score": 0.0,
         "is_relevant": False,
@@ -188,7 +193,8 @@ def test_news_get_by_id_found(client, auth_headers, db_session):
     post = store.query_posts()[0]
     resp = client.get(f"/api/news/{post.id}", headers=auth_headers)
     assert resp.status_code == 200
-    assert resp.json()["x_post_id"] == "single_post"
+    assert resp.json()["external_id"] == "single_post"
+    assert resp.json()["source"] == "hackernews"
 
 
 def test_news_get_by_id_not_found(client, auth_headers):
@@ -220,3 +226,81 @@ def test_digest_trigger_no_posts(client, auth_headers):
         resp = client.post("/api/digest/trigger", headers=auth_headers)
     assert resp.status_code == 200
     assert resp.json()["posts_included"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Source / since filters
+# ---------------------------------------------------------------------------
+
+def test_news_list_filter_by_source(client, auth_headers, db_session):
+    _insert_post(db_session, "hn1", source="hackernews")
+    _insert_post(db_session, "r1", source="reddit")
+    _insert_post(db_session, "gh1", source="github")
+    resp = client.get("/api/news?source=reddit", headers=auth_headers)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 1
+    assert data["items"][0]["source"] == "reddit"
+    assert data["items"][0]["external_id"] == "r1"
+
+
+def test_news_list_filter_by_since(client, auth_headers, db_session):
+    store = NewsStore(session=db_session)
+    store.upsert_post({
+        "source": "hackernews", "external_id": "old1",
+        "author_handle": "u", "content": "old post",
+        "url": "https://news.ycombinator.com/item?id=old1",
+        "posted_at": datetime(2026, 1, 1, tzinfo=timezone.utc),
+        "relevance_score": 7.0, "is_relevant": True, "labels": [],
+    })
+    store.upsert_post({
+        "source": "hackernews", "external_id": "new1",
+        "author_handle": "u", "content": "new post",
+        "url": "https://news.ycombinator.com/item?id=new1",
+        "posted_at": datetime(2026, 3, 1, tzinfo=timezone.utc),
+        "relevance_score": 7.0, "is_relevant": True, "labels": [],
+    })
+    resp = client.get("/api/news?since=2026-02-01T00:00:00Z", headers=auth_headers)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 1
+    assert data["items"][0]["external_id"] == "new1"
+
+
+def test_news_get_by_id_includes_source_field(client, auth_headers, db_session):
+    _insert_post(db_session, "src_test", source="github")
+    store = NewsStore(session=db_session)
+    post = store.query_posts()[0]
+    resp = client.get(f"/api/news/{post.id}", headers=auth_headers)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["source"] == "github"
+    assert body["external_id"] == "src_test"
+
+
+def test_hn_post_has_discussion_url(client, auth_headers, db_session):
+    _insert_post(db_session, "hn123", source="hackernews")
+    store = NewsStore(session=db_session)
+    post = store.query_posts()[0]
+    resp = client.get(f"/api/news/{post.id}", headers=auth_headers)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["discussion_url"] == "https://news.ycombinator.com/item?id=hn123"
+
+
+def test_reddit_post_discussion_url_is_null(client, auth_headers, db_session):
+    _insert_post(db_session, "r_abc", source="reddit")
+    store = NewsStore(session=db_session)
+    post = store.query_posts()[0]
+    resp = client.get(f"/api/news/{post.id}", headers=auth_headers)
+    assert resp.status_code == 200
+    assert resp.json()["discussion_url"] is None
+
+
+def test_post_points_roundtrip(client, auth_headers, db_session):
+    _insert_post(db_session, "pts1", source="hackernews", points=250)
+    store = NewsStore(session=db_session)
+    post = store.query_posts()[0]
+    resp = client.get(f"/api/news/{post.id}", headers=auth_headers)
+    assert resp.status_code == 200
+    assert resp.json()["points"] == 250

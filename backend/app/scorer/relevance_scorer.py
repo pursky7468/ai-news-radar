@@ -119,11 +119,12 @@ class RelevanceScorer:
 
     def score_post(self, post: dict) -> dict:
         """Return dict with relevance_score, labels, is_relevant."""
-        x_post_id = post.get("x_post_id")
+        source = post.get("source")
+        external_id = post.get("external_id")
 
         # Cache check
-        if self._store and x_post_id:
-            cached = self._store.get_post_by_id_by_x(x_post_id)
+        if self._store and source and external_id:
+            cached = self._store.get_post_by_source_and_external_id(source, external_id)
             if cached and cached.relevance_score is not None:
                 return {
                     "relevance_score": cached.relevance_score,
@@ -155,6 +156,9 @@ class RelevanceScorer:
                     fired_groups.add(group_name)
 
         score = _normalize(raw_score)
+        # Community vote bonus: up to +3 pts for high-vote posts (300+ votes → max bonus)
+        points = post.get("points") or 0
+        score = min(10.0, score + min(points / 100, 3.0))
         labels = _groups_to_labels(fired_groups) if fired_groups else ["other"]
         is_relevant = score >= self.threshold
 

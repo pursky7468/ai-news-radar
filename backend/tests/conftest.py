@@ -52,12 +52,14 @@ class PostFactory(factory.Factory):
     class Meta:
         model = dict  # produce plain dicts (not ORM objects)
 
-    x_post_id = factory.Sequence(lambda n: f"post_{n}")
+    source = "hackernews"
+    external_id = factory.Sequence(lambda n: f"post_{n}")
     author_handle = factory.Sequence(lambda n: f"user_{n}")
     content = factory.Faker("sentence", nb_words=12)
-    url = factory.LazyAttribute(lambda o: f"https://x.com/i/web/status/{o.x_post_id}")
+    url = factory.LazyAttribute(lambda o: f"https://news.ycombinator.com/item?id={o.external_id}")
     posted_at = factory.LazyFunction(lambda: datetime.now(timezone.utc))
     relevance_score = None
+    points = None
     is_relevant = False
     labels = factory.LazyFunction(list)
     digest_sent = False

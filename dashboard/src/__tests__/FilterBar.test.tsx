@@ -27,4 +27,23 @@ describe("FilterBar", () => {
     fireEvent.click(clear);
     expect(onChange).toHaveBeenLastCalledWith({});
   });
+
+  it("selects source chip and calls onChange with source param", () => {
+    const onChange = jest.fn();
+    render(<FilterBar onChange={onChange} />);
+    const hnBtn = screen.getByRole("button", { name: /^HN$/i });
+    fireEvent.click(hnBtn);
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ source: "hackernews" }));
+  });
+
+  it("selecting All source clears source filter", () => {
+    const onChange = jest.fn();
+    render(<FilterBar onChange={onChange} />);
+    // Select HN first
+    fireEvent.click(screen.getByRole("button", { name: /^HN$/i }));
+    // Then select All
+    fireEvent.click(screen.getByRole("button", { name: /^All$/i }));
+    const lastCall = onChange.mock.calls[onChange.mock.calls.length - 1][0];
+    expect(lastCall.source).toBeUndefined();
+  });
 });

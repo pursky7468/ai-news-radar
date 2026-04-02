@@ -7,12 +7,14 @@ import pytest
 from app.notifier.digest_notifier import DigestNotifier
 
 
-def _insert_relevant_post(news_store, x_post_id: str, score: float = 8.0):
+def _insert_relevant_post(news_store, external_id: str, score: float = 8.0,
+                          source: str = "hackernews"):
     news_store.upsert_post({
-        "x_post_id": x_post_id,
+        "source": source,
+        "external_id": external_id,
         "author_handle": "researcher",
-        "content": f"AI agent post #{x_post_id}",
-        "url": f"https://x.com/i/web/status/{x_post_id}",
+        "content": f"AI agent post #{external_id}",
+        "url": f"https://news.ycombinator.com/item?id={external_id}",
         "posted_at": datetime(2026, 3, 1, tzinfo=timezone.utc),
         "relevance_score": score,
         "is_relevant": True,

@@ -15,7 +15,7 @@ export default function Home() {
         <DigestButton />
       </div>
       <FilterBar onChange={setFilters} />
-      <NewsFeed />
+      <NewsFeed filters={filters} />
     </div>
   );
 }

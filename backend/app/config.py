@@ -13,9 +13,20 @@ class Settings(BaseSettings):
     # API auth
     api_key: str = "changeme"
 
-    # X API
-    x_bearer_token: str = ""
-    monitored_accounts: str = "AnthropicAI,OpenAI,LangChainAI"
+    # Hacker News
+    hn_keywords: str = "ai agent,LLM,RAG,MCP,multi-agent,AutoGen,LangChain"
+    hn_fetch_limit: int = 100
+
+    # Reddit
+    reddit_subreddits: str = "MachineLearning,LocalLLaMA,singularity,artificial"
+    reddit_keywords: str = ""
+    reddit_fetch_limit: int = 100
+
+    # GitHub
+    github_monitored_repos: str = "langchain-ai/langchain,microsoft/autogen,ollama/ollama,ggerganov/llama.cpp"
+    github_keywords: str = "ai agent,llm,rag"
+    github_fetch_limit: int = 30
+    github_token: str = ""
 
     # Scheduler
     fetch_interval_minutes: int = 15
@@ -37,6 +48,26 @@ class Settings(BaseSettings):
     digest_webhook_url: Optional[str] = None
 
     @property
+    def hn_keywords_list(self) -> list[str]:
+        return [k.strip() for k in self.hn_keywords.split(",") if k.strip()]
+
+    @property
+    def reddit_subreddits_list(self) -> list[str]:
+        return [s.strip() for s in self.reddit_subreddits.split(",") if s.strip()]
+
+    @property
+    def reddit_keywords_list(self) -> list[str]:
+        return [k.strip() for k in self.reddit_keywords.split(",") if k.strip()]
+
+    @property
+    def github_monitored_repos_list(self) -> list[str]:
+        return [r.strip() for r in self.github_monitored_repos.split(",") if r.strip()]
+
+    @property
+    def github_keywords_list(self) -> list[str]:
+        return [k.strip() for k in self.github_keywords.split(",") if k.strip()]
+
+    @property
     def smtp_config(self) -> Optional[dict]:
         if not all([self.smtp_host, self.smtp_user, self.smtp_password, self.digest_email_from, self.digest_email_to]):
             return None
@@ -49,9 +80,6 @@ class Settings(BaseSettings):
             "to": self.digest_email_to,
         }
 
-    @property
-    def monitored_accounts_list(self) -> list[str]:
-        return [a.strip() for a in self.monitored_accounts.split(",") if a.strip()]
 
 
 settings = Settings()

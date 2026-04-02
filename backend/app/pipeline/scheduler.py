@@ -40,7 +40,10 @@ def start_scheduler() -> None:
     global _scheduler
     from app.config import settings
     from app.api.deps import _SessionLocal
-    from app.fetcher.x_data_fetcher import XDataFetcher
+    from app.fetcher.hn_fetcher import HackerNewsFetcher
+    from app.fetcher.reddit_fetcher import RedditFetcher
+    from app.fetcher.github_fetcher import GitHubFetcher
+    from app.fetcher.multi_source_fetcher import MultiSourceFetcher
     from app.notifier.digest_notifier import DigestNotifier
     from app.pipeline.fetch_pipeline import FetchPipeline
     from app.scorer.relevance_scorer import RelevanceScorer
@@ -48,7 +51,25 @@ def start_scheduler() -> None:
 
     db = _SessionLocal()
     store = NewsStore(session=db)
-    fetcher = XDataFetcher(bearer_token=settings.x_bearer_token, news_store=store)
+    hn = HackerNewsFetcher(
+        keywords=settings.hn_keywords_list,
+        fetch_limit=settings.hn_fetch_limit,
+        news_store=store,
+    )
+    reddit = RedditFetcher(
+        subreddits=settings.reddit_subreddits_list,
+        keywords=settings.reddit_keywords_list,
+        fetch_limit=settings.reddit_fetch_limit,
+        news_store=store,
+    )
+    github = GitHubFetcher(
+        keywords=settings.github_keywords_list,
+        monitored_repos=settings.github_monitored_repos_list,
+        fetch_limit=settings.github_fetch_limit,
+        github_token=settings.github_token,
+        news_store=store,
+    )
+    fetcher = MultiSourceFetcher(hn=hn, reddit=reddit, github=github)
     scorer = RelevanceScorer(
         news_store=store,
         keywords_config_path=settings.keywords_config_path,
@@ -58,8 +79,6 @@ def start_scheduler() -> None:
         news_store=store,
         fetcher=fetcher,
         scorer=scorer,
-        keywords=["ai agent", "LLM", "RAG", "MCP", "multi-agent"],
-        accounts=settings.monitored_accounts_list,
     )
     notifier = DigestNotifier(
         news_store=store,

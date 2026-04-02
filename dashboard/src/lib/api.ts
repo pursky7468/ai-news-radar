@@ -7,16 +7,19 @@ const API_KEY = process.env.NEXT_PUBLIC_API_KEY ?? "";
 
 export interface Post {
   id: number;
-  x_post_id: string;
+  source: string;
+  external_id: string;
   author_handle: string;
   content: string;
   url: string;
   posted_at: string;
   fetched_at: string;
   relevance_score: number | null;
+  points: number | null;
   is_relevant: boolean;
   labels: string[];
   digest_sent: boolean;
+  discussion_url: string | null;
 }
 
 export interface PaginatedNewsResponse {
@@ -36,6 +39,8 @@ export interface NewsQueryParams {
   label?: string;
   min_score?: number;
   q?: string;
+  source?: "hackernews" | "reddit" | "github";
+  since?: string;
   page?: number;
   per_page?: number;
   sort?: "date_desc" | "score_desc";
@@ -62,6 +67,8 @@ export function fetchNews(params: NewsQueryParams = {}): Promise<PaginatedNewsRe
   if (params.label) qs.set("label", params.label);
   if (params.min_score !== undefined) qs.set("min_score", String(params.min_score));
   if (params.q) qs.set("q", params.q);
+  if (params.source) qs.set("source", params.source);
+  if (params.since) qs.set("since", params.since);
   if (params.page) qs.set("page", String(params.page));
   if (params.per_page) qs.set("per_page", String(params.per_page));
   if (params.sort) qs.set("sort", params.sort);

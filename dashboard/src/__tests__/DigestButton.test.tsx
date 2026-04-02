@@ -1,14 +1,18 @@
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
-import { server } from "./mocks/server";
-import { http, HttpResponse } from "msw";
 import { DigestButton } from "@/components/DigestButton";
 
-beforeAll(() => server.listen());
-afterEach(() => server.resetHandlers());
-afterAll(() => server.close());
+jest.mock("@/lib/api", () => ({
+  triggerDigest: jest.fn(),
+}));
+
+import { triggerDigest } from "@/lib/api";
+const mockTriggerDigest = triggerDigest as jest.Mock;
+
+afterEach(() => jest.clearAllMocks());
 
 describe("DigestButton", () => {
   it("shows success toast on trigger", async () => {
+    mockTriggerDigest.mockResolvedValue({ posts_included: 1, email_sent: true, webhook_sent: false });
     render(<DigestButton />);
     fireEvent.click(screen.getByRole("button", { name: /send digest/i }));
     await waitFor(() => {
@@ -17,11 +21,7 @@ describe("DigestButton", () => {
   });
 
   it("shows error toast on failure", async () => {
-    server.use(
-      http.post("http://localhost:8000/api/digest/trigger", () =>
-        HttpResponse.json({ detail: "Internal error" }, { status: 500 })
-      )
-    );
+    mockTriggerDigest.mockRejectedValue(new Error("API error 500"));
     render(<DigestButton />);
     fireEvent.click(screen.getByRole("button", { name: /send digest/i }));
     await waitFor(() => {

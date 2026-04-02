@@ -100,7 +100,8 @@ class DigestNotifier:
             payload = {
                 "digest": [
                     {
-                        "x_post_id": p.x_post_id,
+                        "source": p.source,
+                        "external_id": p.external_id,
                         "author": p.author_handle,
                         "content": p.content,
                         "url": p.url,

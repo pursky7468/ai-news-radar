@@ -20,6 +20,8 @@ def list_news(
     to_date: Optional[datetime] = Query(None),
     is_relevant: Optional[bool] = Query(None),
     q: Optional[str] = Query(None),
+    source: Optional[str] = Query(None),
+    since: Optional[datetime] = Query(None),
     sort: str = Query("date_desc"),
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
@@ -33,6 +35,8 @@ def list_news(
         to_date=to_date,
         keyword=q,
         is_relevant=is_relevant,
+        source=source,
+        since=since,
         sort=sort,
         page=page,
         per_page=per_page,
@@ -45,6 +49,8 @@ def list_news(
         to_date=to_date,
         keyword=q,
         is_relevant=is_relevant,
+        source=source,
+        since=since,
     )
     return PaginatedNewsResponse(total=total, page=page, per_page=per_page, items=items)
 

@@ -23,7 +23,8 @@ class Post(Base):
     __tablename__ = "posts"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    x_post_id = Column(String, nullable=False, unique=True)
+    source = Column(String, nullable=False)       # "hackernews" | "reddit" | "github"
+    external_id = Column(String, nullable=False)  # source-specific unique ID
     author_handle = Column(String, nullable=False)
     content = Column(Text, nullable=False)
     url = Column(String, nullable=False)
@@ -34,14 +35,17 @@ class Post(Base):
         default=lambda: datetime.now(timezone.utc),
     )
     relevance_score = Column(Float, nullable=True)
+    points = Column(Integer, nullable=True)
     is_relevant = Column(Boolean, nullable=False, default=False)
     labels = Column(JSON, nullable=False, default=list)
     digest_sent = Column(Boolean, nullable=False, default=False)
 
     __table_args__ = (
+        UniqueConstraint("source", "external_id", name="uq_posts_source_external_id"),
         Index("ix_posts_posted_at", "posted_at"),
         Index("ix_posts_relevance_score", "relevance_score"),
         Index("ix_posts_is_relevant", "is_relevant"),
+        Index("ix_posts_source", "source"),
     )
 
 
