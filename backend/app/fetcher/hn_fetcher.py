@@ -105,5 +105,6 @@ class HackerNewsFetcher:
             content=content,
             url=url,
             posted_at=posted_at,
+            discussion_url=f"https://news.ycombinator.com/item?id={external_id}",
             points=hit.get("points"),
         )

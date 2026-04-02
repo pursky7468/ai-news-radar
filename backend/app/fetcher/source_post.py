@@ -11,4 +11,5 @@ class SourcePost:
     content: str      # title + body, truncated to 2000 chars
     url: str
     posted_at: datetime  # UTC
+    discussion_url: str | None = None  # HN discussion link; None for Reddit/GitHub
     points: int | None = None  # community votes: HN points, Reddit score, GitHub stars

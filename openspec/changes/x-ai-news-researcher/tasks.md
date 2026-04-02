@@ -116,49 +116,48 @@
 > Plan: `C:\Users\User\.claude\plans\hn-dual-links-points.md`
 
 ### 11.1 Data layer (backend)
-- [ ] 11.1.1 `source_post.py` — add `points: int | None = None`
-- [ ] 11.1.2 `hn_fetcher.py` — populate `points=hit.get("points")`
-- [ ] 11.1.3 `reddit_fetcher.py` — populate `points=data.get("score")`
-- [ ] 11.1.4 `github_fetcher.py` — populate `points=stargazers_count` (repo) / `points=0` (release)
-- [ ] 11.1.5 `models.py` — add `points = Column(Integer, nullable=True)`
-- [ ] 11.1.6 `news_store.py` — pass `points=data.get("points")` in `upsert_post`
-- [ ] 11.1.7 `alembic/versions/003_add_points.py` — new migration, `batch_alter_table(recreate="always")`
-- [ ] 11.1.8 `tests/conftest.py` — add `points = None` to `PostFactory`
+- [x] 11.1.1 `source_post.py` — add `points: int | None = None` + `discussion_url: str | None = None`
+- [x] 11.1.2 `hn_fetcher.py` — populate `points=hit.get("points")` + `discussion_url`
+- [x] 11.1.3 `reddit_fetcher.py` — populate `points=data.get("score")`
+- [x] 11.1.4 `github_fetcher.py` — populate `points=stargazers_count` (repo) / `points=0` (release)
+- [x] 11.1.5 `models.py` — add `points = Column(Integer, nullable=True)`
+- [x] 11.1.6 `news_store.py` — pass `points=data.get("points")` in `upsert_post`
+- [x] 11.1.7 `alembic/versions/003_add_points.py` — new migration, `batch_alter_table(recreate="always")`
+- [x] 11.1.8 `tests/conftest.py` — add `points = None` to `PostFactory`
 
 ### 11.2 Scorer: `points` bonus
-- [ ] 11.2.1 `relevance_scorer.py` — add `score = min(10.0, score + min((points or 0) / 100, 3.0))` in `_compute_score`
+- [x] 11.2.1 `relevance_scorer.py` — add `score = min(10.0, score + min((points or 0) / 100, 3.0))` in `_compute_score`
 
 ### 11.3 API schema
-- [ ] 11.3.1 `schemas.py` — add `points: Optional[int]`; add `discussion_url: Optional[str]` computed via `@model_validator` for HN posts
+- [x] 11.3.1 `schemas.py` — add `points: Optional[int]`; add `discussion_url: Optional[str]` computed via `@model_validator` for HN posts
 
 ### 11.4 Frontend
-- [ ] 11.4.1 `lib/api.ts` — add `points?: number`, `discussion_url?: string` to `Post` interface
-- [ ] 11.4.2 `components/PostCard.tsx` — dual links (HN: "View article" + "HN discussion"; others: "View source"); `▲ {points}` badge when points > 0
+- [x] 11.4.1 `lib/api.ts` — add `points?: number`, `discussion_url?: string` to `Post` interface
+- [x] 11.4.2 `components/PostCard.tsx` — dual links (HN: "View article" + "HN discussion"; others: "View source"); `▲ {points}` badge when points > 0
 
 ### 11.5 Tests
-- [ ] 11.5.1 `test_hn_fetcher.py` — assert `points` field populated; missing key → `None`
-- [ ] 11.5.2 `test_reddit_fetcher.py` — assert `points == score`
-- [ ] 11.5.3 `test_github_fetcher.py` — assert repo `points == stargazers_count`; release `points == 0`
-- [ ] 11.5.4 `test_relevance_scorer.py` — 4 new tests: bonus, cap at 3, None as 0, total cap at 10
-- [ ] 11.5.5 `test_api.py` — `discussion_url` correct for HN; `None` for Reddit/GitHub; `points` round-trips
-- [ ] 11.5.6 `PostCard.test.tsx` — new file, 7 tests (dual links, points badge, non-HN single link)
-- [ ] 11.5.7 `mock-data.ts` + `NewsFeed.test.tsx` — add `points`/`discussion_url` to mock; fix label assertion
+- [x] 11.5.1 `test_hn_fetcher.py` — assert `points` field populated; missing key → `None`
+- [x] 11.5.2 `test_reddit_fetcher.py` — assert `points == score`
+- [x] 11.5.3 `test_github_fetcher.py` — assert repo `points == stargazers_count`; release `points == 0`
+- [x] 11.5.4 `test_relevance_scorer.py` — 4 new tests: bonus, cap at 3, None as 0, total cap at 10
+- [x] 11.5.5 `test_api.py` — `discussion_url` correct for HN; `None` for Reddit/GitHub; `points` round-trips
+- [x] 11.5.6 `PostCard.test.tsx` — new file, 7 tests (dual links, points badge, non-HN single link)
+- [x] 11.5.7 `mock-data.ts` + `NewsFeed.test.tsx` — add `points`/`discussion_url` to mock; fix label assertion
 
 ### 11.6 Migration
-- [ ] 11.6.1 Run `alembic upgrade head` on dev.db
+- [x] 11.6.1 Run `alembic upgrade head` on dev.db — migration 003 at head
 
 ---
 
-## 目前狀態 (2026-03-31)
+## 目前狀態 (2026-04-02)
 
-**Phase 1–10 全部完成（含 10.4/10.5 手動驗證）。**
-**Phase 11（HN dual links + points）規格已更新，計畫已建立，待實作。**
+**Phase 1–11 全部完成。**
 
 | 項目 | 說明 |
 |------|------|
 | 10.4 | ✅ 完成 2026-03-31：source badge / filter / auto-refresh 手動驗證通過 |
 | 10.5 | ✅ 完成 2026-03-31：本地 capture server 確認 payload 包含 `source` 欄位 |
-| 11.x | ⏳ 待實作：HN dual links + community vote count（見 tasks 第 11 節）|
+| 11.x | ✅ 完成 2026-04-02：HN dual links + community vote count 全部實作並通過測試 |
 
 ### 重要的已知修復（非 task 清單內）
 
