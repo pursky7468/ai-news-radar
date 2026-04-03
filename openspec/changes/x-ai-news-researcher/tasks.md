@@ -149,48 +149,56 @@
 
 ---
 
-## 12. AI Summarizer — Gemini API 中文每日彙整
+## 12. AI Summarizer — Gemini API 中文每日彙整（整合進 DigestNotifier）
 
 > Plan: `C:\Users\User\.claude\plans\gemini-summarizer.md`
 > Spec: `openspec/changes/x-ai-news-researcher/specs/ai-summarizer/spec.md`
+>
+> **設計原則**：不建立獨立 pipeline。Gemini 摘要整合進現有 `DigestNotifier.run()`，
+> 透過現有 email/webhook 交付，無 80 秒同步 API 問題。
 
 ### 12.1 依賴與設定
 - [ ] 12.1.1 `pyproject.toml` — 加入 `google-generativeai` 依賴
-- [ ] 12.1.2 `config.py` — 加入 `gemini_api_key`, `gemini_model`, `summary_post_limit`, `summary_schedule`
-- [ ] 12.1.3 `.env.example` — 加入 `GEMINI_API_KEY`, `GEMINI_MODEL`, `SUMMARY_POST_LIMIT`, `SUMMARY_SCHEDULE`
+- [ ] 12.1.2 `config.py` — 加入 `gemini_api_key`, `gemini_model`, `summary_post_limit`
+- [ ] 12.1.3 `.env.example` — 加入 `GEMINI_API_KEY`, `GEMINI_MODEL`, `SUMMARY_POST_LIMIT`
 
-### 12.2 DB Schema
-- [ ] 12.2.1 `models.py` — 加入 `Report` model（`id`, `generated_at`, `content`, `post_count`, `model_used`）
-- [ ] 12.2.2 `alembic/versions/004_add_reports.py` — 新 migration，`batch_alter_table(recreate="always")`
+### 12.2 DB Schema（Migration 004）
+- [ ] 12.2.1 `models.py` — `Post` 加 `summary_zh = Column(Text, nullable=True)`；新增 `Report` model
+- [ ] 12.2.2 `alembic/versions/004_add_summary.py` — `batch_alter_table(recreate="always")` 加 `summary_zh`；`create_table("reports")`
+- [ ] 12.2.3 `tests/conftest.py` — `PostFactory` 加 `summary_zh = None`
 
 ### 12.3 GeminiClient
-- [ ] 12.3.1 `backend/app/summarizer/gemini_client.py` — 封裝 `google-generativeai` SDK；`summarize_post(post) -> str`；retry on 429（sleep 60s, once）；fallback to excerpt on failure
-- [ ] 12.3.2 rate limit：每次 call 之間 sleep 4 秒（free tier 15 RPM 安全邊際）
+- [ ] 12.3.1 `backend/app/summarizer/gemini_client.py` — `summarize_post(post) -> str`；retry on 429（sleep 60s, once）；fallback to excerpt on failure
+- [ ] 12.3.2 呼叫端負責 `sleep(4)` between calls（15 RPM free tier 安全邊際）
 
 ### 12.4 SummaryGenerator
-- [ ] 12.4.1 `backend/app/summarizer/summary_generator.py` — `generate(posts) -> str`；per-post call GeminiClient；local assembly 成 Markdown 報告（依 label 分組）
-- [ ] 12.4.2 Markdown 結構：標題含日期、各 label section、每篇含來源 badge + points + 中文摘要 + 連結
+- [ ] 12.4.1 `backend/app/summarizer/summary_generator.py` — `summarize_batch(posts)`：per-post call + cache to DB + circuit breaker（3 consecutive failures → stop）
+- [ ] 12.4.2 `assemble_report(posts, date) -> str`：local Markdown 組裝，依 label 分組，含 points badge + 雙連結（HN only）
 
-### 12.5 ReportStore
-- [ ] 12.5.1 `backend/app/store/news_store.py` — 加入 `save_report(content, post_count, model_used)` 和 `get_latest_report() -> Report | None`
+### 12.5 ReportStore（加入 NewsStore）
+- [ ] 12.5.1 `update_post_summary(post_id, summary_zh)` — flush only
+- [ ] 12.5.2 `save_report(content, post_count, model_used) -> Report` — flush only
+- [ ] 12.5.3 `get_latest_report() -> Report | None`
 
-### 12.6 API endpoints
-- [ ] 12.6.1 `backend/app/api/routes/summary.py` — `POST /api/summary/generate`（需 API key；503 if no Gemini key）
-- [ ] 12.6.2 `backend/app/api/routes/summary.py` — `GET /api/summary/latest`（需 API key；404 if none）
-- [ ] 12.6.3 `backend/app/schemas.py` — 加入 `ReportResponse`（`id`, `generated_at`, `content`, `post_count`, `model_used`）
-- [ ] 12.6.4 `backend/app/main.py` — 註冊 summary router
+### 12.6 DigestNotifier 整合
+- [ ] 12.6.1 `digest_notifier.py` — `run()` 加入摘要步驟：`if settings.gemini_api_key` → `summarize_batch` → `assemble_report` → `save_report`
+- [ ] 12.6.2 Email body 末尾加入「中文摘要」section（含各篇 `summary_zh`）
+- [ ] 12.6.3 Webhook payload 每個 post 加 `summary_zh` 欄位；頂層加 `report_markdown`
 
-### 12.7 Scheduler
-- [ ] 12.7.1 `backend/app/pipeline/scheduler.py` — 加入 `summary_job`，依 `SUMMARY_SCHEDULE` cron 執行；key 不存在則 skip
+### 12.7 API Schema + Endpoint
+- [ ] 12.7.1 `schemas.py` — 加 `summary_zh: Optional[str]` 到 `Post`；加 `ReportResponse` schema
+- [ ] 12.7.2 `backend/app/api/routes/summary.py` — `GET /api/summary/latest`（需 API key；404 if none）
+- [ ] 12.7.3 `backend/app/main.py` — 註冊 summary router
 
 ### 12.8 Tests (TDD)
-- [ ] 12.8.1 `backend/tests/test_gemini_client.py` — mock `google.generativeai`；assert summary returned；assert 429 retry；assert fallback on failure
-- [ ] 12.8.2 `backend/tests/test_summary_generator.py` — mock GeminiClient；assert report Markdown structure；assert empty posts → no report；assert label grouping
-- [ ] 12.8.3 `backend/tests/test_api.py` — `test_summary_generate_returns_report`；`test_summary_latest_not_found`；`test_summary_no_key_returns_503`
+- [ ] 12.8.1 `test_gemini_client.py` — mock SDK；assert summary；assert 429 retry + sleep(60)；assert fallback excerpt
+- [ ] 12.8.2 `test_summary_generator.py` — mock GeminiClient；assert skips cached posts；assert circuit breaker stops at 3 failures；assert label grouping；assert HN discussion link；assert Reddit no discussion link
+- [ ] 12.8.3 `test_api.py` — `test_summary_latest_not_found_404`；`test_summary_latest_returns_report`
+- [ ] 12.8.4 `test_digest_notifier.py` — assert `summarize_batch` called when key set；assert skipped when no key；assert webhook payload has `summary_zh`
 
 ### 12.9 End-to-End Validation
-- [ ] 12.9.1 設定 `GEMINI_API_KEY`，呼叫 `POST /api/summary/generate`，確認回傳中文報告
-- [ ] 12.9.2 確認報告依 label 分組、連結正確、points badge 顯示
+- [ ] 12.9.1 設定 `GEMINI_API_KEY`，觸發 `POST /api/digest/trigger`，確認 `GET /api/summary/latest` 回傳中文報告
+- [ ] 12.9.2 確認報告依 label 分組、HN 雙連結、points badge 顯示正確
 
 ---
 
