@@ -158,47 +158,48 @@
 > 透過現有 email/webhook 交付，無 80 秒同步 API 問題。
 
 ### 12.1 依賴與設定
-- [ ] 12.1.1 `pyproject.toml` — 加入 `google-generativeai` 依賴
-- [ ] 12.1.2 `config.py` — 加入 `gemini_api_key`, `gemini_model`, `summary_post_limit`
-- [ ] 12.1.3 `.env.example` — 加入 `GEMINI_API_KEY`, `GEMINI_MODEL`, `SUMMARY_POST_LIMIT`
+- [x] 12.1.1 `pyproject.toml` — 加入 `google-generativeai` + `groq` 依賴
+- [x] 12.1.2 `config.py` — 加入 `gemini_api_key`, `gemini_model`, `summary_post_limit`, `groq_api_key`, `groq_model`
+- [x] 12.1.3 `.env` — 加入 `GEMINI_API_KEY`, `GEMINI_MODEL`, `GROQ_API_KEY`, `GROQ_MODEL`, `SUMMARY_POST_LIMIT`
 
 ### 12.2 DB Schema（Migration 004）
-- [ ] 12.2.1 `models.py` — `Post` 加 `summary_zh = Column(Text, nullable=True)`；新增 `Report` model
-- [ ] 12.2.2 `alembic/versions/004_add_summary.py` — `batch_alter_table(recreate="always")` 加 `summary_zh`；`create_table("reports")`
-- [ ] 12.2.3 `tests/conftest.py` — `PostFactory` 加 `summary_zh = None`
+- [x] 12.2.1 `models.py` — `Post` 加 `summary_zh = Column(Text, nullable=True)`；新增 `Report` model
+- [x] 12.2.2 `alembic/versions/004_add_summary.py` — `batch_alter_table(recreate="always")` 加 `summary_zh`；`create_table("reports")`
+- [x] 12.2.3 `tests/conftest.py` — `PostFactory` 加 `summary_zh = None`
 
-### 12.3 GeminiClient
-- [ ] 12.3.1 `backend/app/summarizer/gemini_client.py` — `summarize_post(post) -> str`；retry on 429（sleep 60s, once）；fallback to excerpt on failure
-- [ ] 12.3.2 呼叫端負責 `sleep(4)` between calls（15 RPM free tier 安全邊際）
+### 12.3 GeminiClient / GroqClient
+- [x] 12.3.1 `backend/app/summarizer/gemini_client.py` — `summarize_post(post) -> str`；retry on 429（sleep 60s, once）；fallback to excerpt on failure
+- [x] 12.3.2 `backend/app/summarizer/groq_client.py` — 相同介面；`GROQ_API_KEY` 優先於 Gemini
+- [x] 12.3.3 呼叫端負責 `sleep(4)` between calls（15 RPM free tier 安全邊際）
 
 ### 12.4 SummaryGenerator
-- [ ] 12.4.1 `backend/app/summarizer/summary_generator.py` — `summarize_batch(posts)`：per-post call + cache to DB + circuit breaker（3 consecutive failures → stop）
-- [ ] 12.4.2 `assemble_report(posts, date) -> str`：local Markdown 組裝，依 label 分組，含 points badge + 雙連結（HN only）
+- [x] 12.4.1 `backend/app/summarizer/summary_generator.py` — `summarize_batch(posts)`：per-post call + cache to DB + circuit breaker（3 consecutive failures → stop）
+- [x] 12.4.2 `assemble_report(posts, date) -> str`：local Markdown 組裝，依 label 分組，含 points badge + 雙連結（HN only）
 
 ### 12.5 ReportStore（加入 NewsStore）
-- [ ] 12.5.1 `update_post_summary(post_id, summary_zh)` — flush only
-- [ ] 12.5.2 `save_report(content, post_count, model_used) -> Report` — flush only
-- [ ] 12.5.3 `get_latest_report() -> Report | None`
+- [x] 12.5.1 `update_post_summary(post_id, summary_zh)` — flush only
+- [x] 12.5.2 `save_report(content, post_count, model_used) -> Report` — flush only
+- [x] 12.5.3 `get_latest_report() -> Report | None`
 
 ### 12.6 DigestNotifier 整合
-- [ ] 12.6.1 `digest_notifier.py` — `run()` 加入摘要步驟：`if settings.gemini_api_key` → `summarize_batch` → `assemble_report` → `save_report`
-- [ ] 12.6.2 Email body 末尾加入「中文摘要」section（含各篇 `summary_zh`）
-- [ ] 12.6.3 Webhook payload 每個 post 加 `summary_zh` 欄位；頂層加 `report_markdown`
+- [x] 12.6.1 `digest_notifier.py` — `run()` 加入摘要步驟：Groq 優先，fallback Gemini；`summarize_batch` → `assemble_report` → `save_report` → `commit()`
+- [x] 12.6.2 Email body 末尾加入「中文摘要」section（含各篇 `summary_zh`）
+- [x] 12.6.3 Webhook payload 每個 post 加 `summary_zh` 欄位；頂層加 `report_markdown`
 
 ### 12.7 API Schema + Endpoint
-- [ ] 12.7.1 `schemas.py` — 加 `summary_zh: Optional[str]` 到 `Post`；加 `ReportResponse` schema
-- [ ] 12.7.2 `backend/app/api/routes/summary.py` — `GET /api/summary/latest`（需 API key；404 if none）
-- [ ] 12.7.3 `backend/app/main.py` — 註冊 summary router
+- [x] 12.7.1 `schemas.py` — 加 `summary_zh: Optional[str]` 到 `Post`；加 `ReportResponse` schema
+- [x] 12.7.2 `backend/app/api/routes/summary.py` — `GET /api/summary/latest`（需 API key；404 if none）
+- [x] 12.7.3 `backend/app/main.py` — 註冊 summary router
 
 ### 12.8 Tests (TDD)
-- [ ] 12.8.1 `test_gemini_client.py` — mock SDK；assert summary；assert 429 retry + sleep(60)；assert fallback excerpt
-- [ ] 12.8.2 `test_summary_generator.py` — mock GeminiClient；assert skips cached posts；assert circuit breaker stops at 3 failures；assert label grouping；assert HN discussion link；assert Reddit no discussion link
-- [ ] 12.8.3 `test_api.py` — `test_summary_latest_not_found_404`；`test_summary_latest_returns_report`
-- [ ] 12.8.4 `test_digest_notifier.py` — assert `summarize_batch` called when key set；assert skipped when no key；assert webhook payload has `summary_zh`
+- [x] 12.8.1 `test_gemini_client.py` — mock SDK；assert summary；assert 429 retry + sleep(60)；assert fallback excerpt
+- [x] 12.8.2 `test_summary_generator.py` — mock GeminiClient；assert skips cached posts；assert circuit breaker stops at 3 failures；assert label grouping；assert HN discussion link；assert Reddit no discussion link
+- [x] 12.8.3 `test_api.py` — `test_summary_latest_not_found_404`；`test_summary_latest_returns_report`
+- [x] 12.8.4 `test_digest_notifier.py` — assert `summarize_batch` called when key set；assert skipped when no key；assert webhook payload has `summary_zh`
 
 ### 12.9 End-to-End Validation
-- [ ] 12.9.1 設定 `GEMINI_API_KEY`，觸發 `POST /api/digest/trigger`，確認 `GET /api/summary/latest` 回傳中文報告
-- [ ] 12.9.2 確認報告依 label 分組、HN 雙連結、points badge 顯示正確
+- [x] 12.9.1 設定 `GROQ_API_KEY`，觸發 `POST /api/digest/trigger`，確認 `GET /api/summary/latest` 回傳中文報告（model: llama-3.3-70b-versatile）
+- [x] 12.9.2 確認報告依 label 分組、HN 雙連結、points badge 顯示正確
 
 ---
 
@@ -258,21 +259,25 @@
 
 ## 目前狀態 (2026-04-03)
 
-**Phase 1–12 全部完成。**
+**Phase 1–13 全部完成。**
 
 | 項目 | 說明 |
 |------|------|
 | 10.4 | ✅ 完成 2026-03-31：source badge / filter / auto-refresh 手動驗證通過 |
 | 10.5 | ✅ 完成 2026-03-31：本地 capture server 確認 payload 包含 `source` 欄位 |
 | 11.x | ✅ 完成 2026-04-02：HN dual links + community vote count 全部實作並通過測試 |
-| 12.x | ✅ 完成 2026-04-03：Gemini AI Summarizer 整合進 DigestNotifier，118 tests pass，88% coverage |
+| 12.x | ✅ 完成 2026-04-03：AI Summarizer（Groq 優先 / Gemini fallback）整合進 DigestNotifier，122 tests pass，86% coverage |
+| 13.x | ✅ 完成 2026-04-03：Report history browser — 日期 Pill + 分類 Tabs，`GET /api/summary/reports` + `GET /api/summary/reports/{id}` |
 
 ### 重要的已知修復（非 task 清單內）
 
 1. **`FetchPipeline.run()` 現在呼叫 `store.commit()`** — 修復了 production scheduler 下資料不持久的 bug（session 從未 commit）
-2. **Alembic migration 002 使用 `recreate="always"`** — 修復 SQLite 無名 UNIQUE constraint 導致 `alembic upgrade` 失敗的問題
-3. **`test_rate_limit_integration.py` 已重寫** — 原本測試已刪除的 `XDataFetcher`；現在測試 `MultiSourceFetcher` + `GitHubFetcher` + `RedditFetcher` 的 rate limit 行為
-4. **Jest config 修復** — `setupFilesAfterFramework` typo → `setupFilesAfterEnv`；移除 msw `setupServer` 改用 `jest.mock("@/lib/api")`
+2. **`DigestNotifier.run()` 現在呼叫 `store.commit()`** — 修復了 report/summary_zh 從不持久化的 bug
+3. **`digest.py` API route 補上 `gemini_api_key` / `groq_api_key` 參數** — 修復了透過 API 觸發 digest 時摘要功能未啟用的 bug
+4. **Alembic migration 002 使用 `recreate="always"`** — 修復 SQLite 無名 UNIQUE constraint 導致 `alembic upgrade` 失敗的問題
+5. **`test_rate_limit_integration.py` 已重寫** — 原本測試已刪除的 `XDataFetcher`；現在測試 `MultiSourceFetcher` + `GitHubFetcher` + `RedditFetcher` 的 rate limit 行為
+6. **Jest config 修復** — `setupFilesAfterFramework` typo → `setupFilesAfterEnv`；移除 msw `setupServer` 改用 `jest.mock("@/lib/api")`
+7. **Report category tab bug** — 分類 Tab 改用文字 `includes()` 比對取代 emoji 字串 key，修復切換 Tab 永遠顯示 AI Agent 的問題
 
 ### 刪除的檔案
 
