@@ -33,6 +33,15 @@ class Post(BaseModel):
         return self
 
 
+class ReportListItem(BaseModel):
+    id: int
+    generated_at: datetime
+    post_count: int
+    model_used: str
+
+    model_config = {"from_attributes": True}
+
+
 class ReportResponse(BaseModel):
     id: int
     generated_at: datetime

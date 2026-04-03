@@ -55,6 +55,30 @@ The system SHALL expose a `POST /api/digest/trigger` endpoint that immediately r
 - **WHEN** `POST /api/digest/trigger` is called with no unsent relevant posts
 - **THEN** HTTP 200 is returned with `posts_included: 0` and no notifications sent
 
+### Requirement: List all reports
+
+The system SHALL expose a `GET /api/summary/reports` endpoint that returns a paginated list of all generated reports, ordered by `generated_at` descending. Each item SHALL include `id`, `generated_at`, `post_count`, and `model_used` (no `content`).
+
+#### Scenario: Reports list
+- **WHEN** `GET /api/summary/reports` is called
+- **THEN** all reports are returned ordered by `generated_at` descending with `id`, `generated_at`, `post_count`, `model_used`
+
+#### Scenario: Empty list
+- **WHEN** no reports have been generated
+- **THEN** an empty list is returned with HTTP 200
+
+### Requirement: Get report by ID
+
+The system SHALL expose a `GET /api/summary/reports/{id}` endpoint that returns the full content of a specific report.
+
+#### Scenario: Report found
+- **WHEN** `GET /api/summary/reports/3` is called and report 3 exists
+- **THEN** the full `ReportResponse` (including `content`) is returned
+
+#### Scenario: Report not found
+- **WHEN** `GET /api/summary/reports/9999` is called and it does not exist
+- **THEN** HTTP 404 is returned
+
 ### Requirement: Health check endpoint
 
 The system SHALL expose a `GET /api/health` endpoint that returns the current status of the service, database connectivity, and last successful fetch time.

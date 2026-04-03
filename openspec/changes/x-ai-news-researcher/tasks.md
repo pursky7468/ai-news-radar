@@ -202,6 +202,60 @@
 
 ---
 
+---
+
+## 13. Report History Browser — 歷史彙整瀏覽（含分類篩選）
+
+> Spec: `specs/news-dashboard/spec.md` (Requirement: Report history browser)
+> Spec: `specs/news-api/spec.md` (Requirement: List all reports / Get report by ID)
+>
+> **設計原則**：分類篩選在前端 parse Markdown section headers（client-side），不異動 DB schema。
+> 後端只新增兩支 API endpoint。
+
+### 13.1 Backend — Schema
+
+- [x] 13.1.1 `schemas.py` — `ReportResponse` 加入 `id: int` 欄位
+- [x] 13.1.2 `schemas.py` — 新增 `ReportListItem` schema（`id`, `generated_at`, `post_count`, `model_used`，不含 `content`）
+
+### 13.2 Backend — Store
+
+- [x] 13.2.1 `news_store.py` — 新增 `get_reports(limit: int = 50, offset: int = 0) -> list[Report]`，按 `generated_at DESC` 排序
+- [x] 13.2.2 `news_store.py` — 新增 `get_report_by_id(report_id: int) -> Report | None`
+
+### 13.3 Backend — API Routes
+
+- [x] 13.3.1 `routes/summary.py` — `GET /api/summary/reports`：回傳 `list[ReportListItem]`
+- [x] 13.3.2 `routes/summary.py` — `GET /api/summary/reports/{id}`：回傳 `ReportResponse`；不存在回 404
+
+### 13.4 Backend — Tests
+
+- [x] 13.4.1 `test_api.py` — `test_reports_list_empty`：no reports → `[]`
+- [x] 13.4.2 `test_api.py` — `test_reports_list_returns_items`：多筆回傳，按日期降序，不含 `content`
+- [x] 13.4.3 `test_api.py` — `test_report_by_id_found`：回傳完整 content
+- [x] 13.4.4 `test_api.py` — `test_report_by_id_not_found`：404
+
+### 13.5 Frontend — API Client
+
+- [x] 13.5.1 `lib/api.ts` — `Report` interface 加入 `id: number`
+- [x] 13.5.2 `lib/api.ts` — 新增 `ReportListItem` interface（`id`, `generated_at`, `post_count`, `model_used`）
+- [x] 13.5.3 `lib/api.ts` — 新增 `fetchReports(): Promise<ReportListItem[]>`
+- [x] 13.5.4 `lib/api.ts` — 新增 `fetchReportById(id: number): Promise<Report>`
+
+### 13.6 Frontend — Report Page 重構
+
+- [x] 13.6.1 `app/report/page.tsx` — 載入報告列表，顯示為日期 Pill 列（按 `generated_at DESC`），預設選最新
+- [x] 13.6.2 `app/report/page.tsx` — 點選日期 Pill → 載入對應 report（`fetchReportById`）
+- [x] 13.6.3 `app/report/page.tsx` — 分類 Tabs：`全部` / `🤖 AI Agent` / `🧠 AI 模型` / `🛠 AI 工具` / `📰 其他`
+- [x] 13.6.4 `app/report/page.tsx` — 分類篩選邏輯：client-side parse Markdown `## ` section headers，依選擇的 Tab 只渲染對應 section
+- [x] 13.6.5 `app/report/page.tsx` — 文章呈現改為卡片風格（對齊首頁 PostCard 視覺），含 source badge、points、中文摘要、連結
+- [x] 13.6.6 `app/report/page.tsx` — Empty state：無報告時顯示說明文字與「重新生成」按鈕
+
+### 13.7 Frontend — 共用元件（選用）
+
+- [x] 13.7.1 `components/ReportCard.tsx`（可選）— 卡片樣式直接在 page 內透過 ReactMarkdown + prose 實作，差異不大，不需獨立元件
+
+---
+
 ## 目前狀態 (2026-04-03)
 
 **Phase 1–12 全部完成。**

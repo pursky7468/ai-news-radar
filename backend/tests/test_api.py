@@ -333,3 +333,52 @@ def test_summary_latest_returns_report(client, auth_headers, db_session):
 def test_summary_latest_requires_auth(client):
     resp = client.get("/api/summary/latest")
     assert resp.status_code == 401
+
+
+def test_reports_list_empty(client, auth_headers):
+    resp = client.get("/api/summary/reports", headers=auth_headers)
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+def test_reports_list_returns_items(client, auth_headers, db_session):
+    from datetime import timedelta
+    from app.models import Report
+    store = NewsStore(session=db_session)
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+    r1 = Report(content="# Report 1", post_count=5, model_used="llama-3.3-70b-versatile",
+                generated_at=now - timedelta(minutes=1))
+    r2 = Report(content="# Report 2", post_count=10, model_used="llama-3.3-70b-versatile",
+                generated_at=now)
+    db_session.add_all([r1, r2])
+    db_session.commit()
+    resp = client.get("/api/summary/reports", headers=auth_headers)
+    assert resp.status_code == 200
+    items = resp.json()
+    assert len(items) == 2
+    # ordered by generated_at DESC — most recent first
+    assert items[0]["post_count"] == 10
+    assert items[1]["post_count"] == 5
+    # no content field
+    assert "content" not in items[0]
+    assert "id" in items[0]
+
+
+def test_report_by_id_found(client, auth_headers, db_session):
+    store = NewsStore(session=db_session)
+    store.save_report(content="# Full Report", post_count=7, model_used="llama-3.3-70b-versatile")
+    db_session.commit()
+    # get id from list
+    list_resp = client.get("/api/summary/reports", headers=auth_headers)
+    report_id = list_resp.json()[0]["id"]
+    resp = client.get(f"/api/summary/reports/{report_id}", headers=auth_headers)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["content"] == "# Full Report"
+    assert data["post_count"] == 7
+
+
+def test_report_by_id_not_found(client, auth_headers):
+    resp = client.get("/api/summary/reports/9999", headers=auth_headers)
+    assert resp.status_code == 404

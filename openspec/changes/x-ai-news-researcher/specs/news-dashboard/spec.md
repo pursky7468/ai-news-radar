@@ -93,6 +93,33 @@ The dashboard SHALL provide a "Send Digest Now" button that calls `POST /api/dig
 - **WHEN** the API returns an error
 - **THEN** an error toast is shown with the error message
 
+### Requirement: Report history browser
+
+The dashboard SHALL provide a `/report` page that displays all historical reports with category filtering, not limited to the latest report only.
+
+#### Scenario: Report list loaded
+- **WHEN** the user opens `/report`
+- **THEN** all available reports are listed as date pills sorted by `generated_at` descending
+- **AND** the most recent report is selected and displayed by default
+
+#### Scenario: Switch between reports
+- **WHEN** the user clicks a date pill
+- **THEN** the content of that specific report is loaded and displayed
+
+#### Scenario: Category filter
+- **WHEN** the user clicks a category tab (`全部` / `🤖 AI Agent` / `🧠 AI 模型` / `🛠 AI 工具` / `📰 其他`)
+- **THEN** only articles in that category section are shown
+- **AND** the filter is applied client-side by parsing the Markdown section headers
+
+#### Scenario: No reports available
+- **WHEN** no reports have been generated
+- **THEN** an empty state is shown with instructions to click "重新生成"
+
+#### Scenario: Article card style
+- **WHEN** a report is displayed
+- **THEN** each article entry SHALL be rendered as a card consistent with the news feed at `/`
+- **AND** each card SHALL show: title, source badge, points (if available), Chinese summary, and navigation links
+
 ### Requirement: Auto-refresh feed
 
 The dashboard SHALL automatically poll `GET /api/news?since={last_fetched_at}` every 5 minutes in the background. When the response contains new posts, a banner SHALL appear prompting the user to reload the feed.

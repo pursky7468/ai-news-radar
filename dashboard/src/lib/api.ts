@@ -79,6 +79,13 @@ export function triggerDigest(): Promise<DigestResult> {
   return apiFetch<DigestResult>("/api/digest/trigger", { method: "POST" });
 }
 
+export interface ReportListItem {
+  id: number;
+  generated_at: string;
+  post_count: number;
+  model_used: string;
+}
+
 export interface Report {
   id: number;
   generated_at: string;
@@ -89,4 +96,12 @@ export interface Report {
 
 export function fetchLatestReport(): Promise<Report> {
   return apiFetch<Report>("/api/summary/latest");
+}
+
+export function fetchReports(): Promise<ReportListItem[]> {
+  return apiFetch<ReportListItem[]>("/api/summary/reports");
+}
+
+export function fetchReportById(id: number): Promise<Report> {
+  return apiFetch<Report>(`/api/summary/reports/${id}`);
 }

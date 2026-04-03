@@ -61,6 +61,20 @@ class NewsStore:
         self._session.flush()
         return report
 
+    def get_reports(self, limit: int = 50, offset: int = 0) -> list[Report]:
+        """Return all reports ordered by generated_at descending."""
+        return (
+            self._session.query(Report)
+            .order_by(Report.generated_at.desc())
+            .limit(limit)
+            .offset(offset)
+            .all()
+        )
+
+    def get_report_by_id(self, report_id: int) -> Optional[Report]:
+        """Return a specific report by ID, or None."""
+        return self._session.get(Report, report_id)
+
     def get_latest_report(self) -> Optional[Report]:
         """Return the most recently generated report, or None."""
         return (

@@ -1,40 +1,96 @@
 "use client";
 import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { fetchLatestReport, triggerDigest, type Report } from "@/lib/api";
+import {
+  fetchReports,
+  fetchReportById,
+  triggerDigest,
+  type Report,
+  type ReportListItem,
+} from "@/lib/api";
 
-type State =
+const CATEGORIES = [
+  { key: "all",       label: "全部",        match: null },
+  { key: "ai-agent",  label: "🤖 AI Agent", match: "AI Agent" },
+  { key: "ai-model",  label: "🧠 AI 模型",  match: "AI 模型" },
+  { key: "ai-tool",   label: "🛠 AI 工具",  match: "AI 工具" },
+  { key: "other",     label: "📰 其他",     match: "其他" },
+];
+
+/** Extract the content of one ## section by matching a keyword in the header. */
+function filterSection(content: string, match: string | null): string {
+  if (!match) return content;
+  const lines = content.split("\n");
+  const result: string[] = [];
+  let collecting = false;
+  for (const line of lines) {
+    if (line.startsWith("## ")) {
+      collecting = line.includes(match);
+    }
+    if (collecting) result.push(line);
+  }
+  return result.join("\n");
+}
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString("zh-TW", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+}
+
+type PageState =
   | { status: "loading" }
-  | { status: "ok"; report: Report }
+  | { status: "ok"; reports: ReportListItem[]; report: Report }
   | { status: "empty" }
   | { status: "error"; message: string };
 
 export default function ReportPage() {
-  const [state, setState] = useState<State>({ status: "loading" });
+  const [state, setState] = useState<PageState>({ status: "loading" });
+  const [activeCategory, setActiveCategory] = useState("all");
   const [generating, setGenerating] = useState(false);
+  const [loadingId, setLoadingId] = useState<number | null>(null);
 
-  const loadReport = () => {
+  const loadReports = () => {
     setState({ status: "loading" });
-    fetchLatestReport()
-      .then((r) => setState({ status: "ok", report: r }))
-      .catch((e: Error) => {
-        if (e.message.includes("404")) {
+    fetchReports()
+      .then(async (reports) => {
+        if (reports.length === 0) {
           setState({ status: "empty" });
-        } else {
-          setState({ status: "error", message: e.message });
+          return;
         }
-      });
+        const report = await fetchReportById(reports[0].id);
+        setState({ status: "ok", reports, report });
+      })
+      .catch((e: Error) => setState({ status: "error", message: e.message }));
   };
 
-  useEffect(() => { loadReport(); }, []);
+  useEffect(() => {
+    loadReports();
+  }, []);
+
+  const selectReport = async (id: number) => {
+    if (state.status !== "ok") return;
+    setLoadingId(id);
+    setActiveCategory("all");
+    try {
+      const report = await fetchReportById(id);
+      setState({ ...state, report });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Unknown error";
+      setState({ status: "error", message: msg });
+    } finally {
+      setLoadingId(null);
+    }
+  };
 
   const handleGenerate = async () => {
     setGenerating(true);
     try {
       await triggerDigest();
-      // Wait briefly for summarization to complete before reloading
       await new Promise((r) => setTimeout(r, 2000));
-      loadReport();
+      loadReports();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Unknown error";
       setState({ status: "error", message: msg });
@@ -43,10 +99,17 @@ export default function ReportPage() {
     }
   };
 
+  const activeCat = CATEGORIES.find((c) => c.key === activeCategory) ?? CATEGORIES[0];
+  const visibleContent =
+    state.status === "ok"
+      ? filterSection(state.report.content, activeCat.match)
+      : "";
+
   return (
     <div className="space-y-4">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold">每日 AI 新聞彙整</h2>
+        <h2 className="text-base font-semibold">AI 新聞彙整</h2>
         <button
           onClick={handleGenerate}
           disabled={generating}
@@ -60,36 +123,77 @@ export default function ReportPage() {
         <p className="text-sm text-gray-500">載入中…</p>
       )}
 
-      {state.status === "empty" && (
-        <div className="border border-dashed border-gray-300 rounded-lg p-8 text-center space-y-3">
-          <p className="text-gray-500 text-sm">尚未生成任何報告</p>
-          <p className="text-gray-400 text-xs">
-            請先在 <code className="bg-gray-100 px-1 rounded">.env</code> 設定{" "}
-            <code className="bg-gray-100 px-1 rounded">GEMINI_API_KEY</code>，<br />
-            再點「重新生成」觸發 digest 並生成中文摘要。
-          </p>
-        </div>
-      )}
-
       {state.status === "error" && (
         <div className="bg-red-50 border border-red-200 rounded p-3 text-sm text-red-700">
           {state.message}
         </div>
       )}
 
+      {state.status === "empty" && (
+        <div className="border border-dashed border-gray-300 rounded-lg p-8 text-center space-y-3">
+          <p className="text-gray-500 text-sm">尚未生成任何報告</p>
+          <p className="text-gray-400 text-xs">
+            請先設定{" "}
+            <code className="bg-gray-100 px-1 rounded">GROQ_API_KEY</code>，
+            再點「重新生成」觸發 digest。
+          </p>
+        </div>
+      )}
+
       {state.status === "ok" && (
-        <div className="space-y-2">
+        <>
+          {/* Date pills */}
+          <div className="flex flex-wrap gap-2">
+            {state.reports.map((r) => (
+              <button
+                key={r.id}
+                onClick={() => selectReport(r.id)}
+                disabled={loadingId === r.id}
+                className={`text-xs px-3 py-1 rounded-full border transition-colors ${
+                  r.id === state.report.id
+                    ? "bg-gray-900 text-white border-gray-900"
+                    : "bg-white text-gray-600 border-gray-300 hover:border-gray-500"
+                }`}
+              >
+                {loadingId === r.id ? "載入中…" : formatDate(r.generated_at)}
+              </button>
+            ))}
+          </div>
+
+          {/* Category tabs */}
+          <div className="flex flex-wrap gap-1 border-b border-gray-200 pb-2">
+            {CATEGORIES.map((cat) => (
+              <button
+                key={cat.key}
+                onClick={() => setActiveCategory(cat.key)}
+                className={`text-xs px-3 py-1.5 rounded-t transition-colors ${
+                  activeCategory === cat.key
+                    ? "bg-white border border-b-white border-gray-200 font-semibold text-gray-900 -mb-px"
+                    : "text-gray-500 hover:text-gray-800"
+                }`}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Report meta */}
           <div className="flex gap-3 text-xs text-gray-400">
-            <span>生成時間：{new Date(state.report.generated_at).toLocaleString("zh-TW")}</span>
+            <span>
+              生成時間：
+              {new Date(state.report.generated_at).toLocaleString("zh-TW")}
+            </span>
             <span>·</span>
             <span>{state.report.post_count} 篇文章</span>
             <span>·</span>
             <span>{state.report.model_used}</span>
           </div>
+
+          {/* Report content */}
           <article className="prose prose-sm max-w-none bg-white border border-gray-200 rounded-lg p-6">
-            <ReactMarkdown>{state.report.content}</ReactMarkdown>
+            <ReactMarkdown>{visibleContent}</ReactMarkdown>
           </article>
-        </div>
+        </>
       )}
     </div>
   );
