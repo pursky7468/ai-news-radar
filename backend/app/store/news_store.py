@@ -5,7 +5,7 @@ from typing import Optional
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.models import Post, SystemState
+from app.models import Post, Report, SystemState
 
 _LAST_FETCH_KEY = "last_fetch_at"
 
@@ -46,6 +46,28 @@ class NewsStore:
             )
             self._session.add(post)
         self._session.flush()
+
+    def update_post_summary(self, post_id: int, summary_zh: str) -> None:
+        """Cache the zh-TW summary for a post."""
+        self._session.query(Post).filter(Post.id == post_id).update(
+            {"summary_zh": summary_zh}, synchronize_session="fetch"
+        )
+        self._session.flush()
+
+    def save_report(self, content: str, post_count: int, model_used: str) -> Report:
+        """Persist an assembled Markdown report."""
+        report = Report(content=content, post_count=post_count, model_used=model_used)
+        self._session.add(report)
+        self._session.flush()
+        return report
+
+    def get_latest_report(self) -> Optional[Report]:
+        """Return the most recently generated report, or None."""
+        return (
+            self._session.query(Report)
+            .order_by(Report.generated_at.desc())
+            .first()
+        )
 
     def mark_digest_sent(self, post_ids: list[int]) -> None:
         """Mark the given post IDs as digest_sent=True."""

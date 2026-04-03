@@ -16,6 +16,7 @@ class Post(BaseModel):
     fetched_at: datetime
     relevance_score: Optional[float] = None
     points: Optional[int] = None
+    summary_zh: Optional[str] = None
     is_relevant: bool
     labels: List[str]
     digest_sent: bool
@@ -30,6 +31,16 @@ class Post(BaseModel):
                 f"https://news.ycombinator.com/item?id={self.external_id}"
             )
         return self
+
+
+class ReportResponse(BaseModel):
+    id: int
+    generated_at: datetime
+    content: str
+    post_count: int
+    model_used: str
+
+    model_config = {"from_attributes": True}
 
 
 class PaginatedNewsResponse(BaseModel):

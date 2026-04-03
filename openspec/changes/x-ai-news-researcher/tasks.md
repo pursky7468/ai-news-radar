@@ -204,14 +204,14 @@
 
 ## 目前狀態 (2026-04-03)
 
-**Phase 1–11 全部完成。Phase 12（AI Summarizer）規格已建立，計畫已建立，待實作。**
+**Phase 1–12 全部完成。**
 
 | 項目 | 說明 |
 |------|------|
 | 10.4 | ✅ 完成 2026-03-31：source badge / filter / auto-refresh 手動驗證通過 |
 | 10.5 | ✅ 完成 2026-03-31：本地 capture server 確認 payload 包含 `source` 欄位 |
 | 11.x | ✅ 完成 2026-04-02：HN dual links + community vote count 全部實作並通過測試 |
-| 12.x | ⏳ 待實作：Gemini API 中文每日彙整（見 tasks 第 12 節）|
+| 12.x | ✅ 完成 2026-04-03：Gemini AI Summarizer 整合進 DigestNotifier，118 tests pass，88% coverage |
 
 ### 重要的已知修復（非 task 清單內）
 

@@ -47,6 +47,11 @@ class Settings(BaseSettings):
     # Webhook
     digest_webhook_url: Optional[str] = None
 
+    # Gemini AI Summarizer (optional — disabled if api key absent)
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-2.0-flash"
+    summary_post_limit: int = 20
+
     @property
     def hn_keywords_list(self) -> list[str]:
         return [k.strip() for k in self.hn_keywords.split(",") if k.strip()]

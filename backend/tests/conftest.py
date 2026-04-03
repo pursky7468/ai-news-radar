@@ -60,6 +60,7 @@ class PostFactory(factory.Factory):
     posted_at = factory.LazyFunction(lambda: datetime.now(timezone.utc))
     relevance_score = None
     points = None
+    summary_zh = None
     is_relevant = False
     labels = factory.LazyFunction(list)
     digest_sent = False

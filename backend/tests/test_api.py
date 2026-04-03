@@ -304,3 +304,32 @@ def test_post_points_roundtrip(client, auth_headers, db_session):
     resp = client.get(f"/api/news/{post.id}", headers=auth_headers)
     assert resp.status_code == 200
     assert resp.json()["points"] == 250
+
+
+# ---------------------------------------------------------------------------
+# Summary report
+# ---------------------------------------------------------------------------
+
+def test_summary_latest_not_found_returns_404(client, auth_headers):
+    resp = client.get("/api/summary/latest", headers=auth_headers)
+    assert resp.status_code == 404
+
+
+def test_summary_latest_returns_report(client, auth_headers, db_session):
+    store = NewsStore(session=db_session)
+    store.save_report(
+        content="# AI 新聞每日彙整 — 2026-04-03\n**共 3 篇**",
+        post_count=3,
+        model_used="gemini-2.0-flash",
+    )
+    resp = client.get("/api/summary/latest", headers=auth_headers)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["post_count"] == 3
+    assert data["model_used"] == "gemini-2.0-flash"
+    assert "AI 新聞每日彙整" in data["content"]
+
+
+def test_summary_latest_requires_auth(client):
+    resp = client.get("/api/summary/latest")
+    assert resp.status_code == 401

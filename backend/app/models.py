@@ -39,6 +39,7 @@ class Post(Base):
     is_relevant = Column(Boolean, nullable=False, default=False)
     labels = Column(JSON, nullable=False, default=list)
     digest_sent = Column(Boolean, nullable=False, default=False)
+    summary_zh = Column(Text, nullable=True)
 
     __table_args__ = (
         UniqueConstraint("source", "external_id", name="uq_posts_source_external_id"),
@@ -47,6 +48,20 @@ class Post(Base):
         Index("ix_posts_is_relevant", "is_relevant"),
         Index("ix_posts_source", "source"),
     )
+
+
+class Report(Base):
+    __tablename__ = "reports"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    generated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+    content = Column(Text, nullable=False)       # Markdown zh-TW report
+    post_count = Column(Integer, nullable=False)
+    model_used = Column(String, nullable=False)
 
 
 class SystemState(Base):

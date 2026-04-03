@@ -1,6 +1,6 @@
 """Tests for DigestNotifier — TDD Red/Green cycle."""
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -54,7 +54,7 @@ def test_generate_digest_empty_when_no_posts(notifier):
 # Email
 # ---------------------------------------------------------------------------
 
-def test_send_email_marks_posts_sent_on_success(news_store):
+def test_send_email_returns_true_on_success(news_store):
     _insert_relevant_post(news_store, "pe1")
     smtp_config = {
         "host": "smtp.example.com",
@@ -67,15 +67,12 @@ def test_send_email_marks_posts_sent_on_success(news_store):
     notifier = DigestNotifier(news_store=news_store, smtp_config=smtp_config, webhook_url=None)
     posts = notifier.generate_digest()
     with patch("app.notifier.digest_notifier.smtplib") as mock_smtp:
-        mock_smtp_instance = MagicMock()
-        mock_smtp.SMTP.return_value.__enter__.return_value = mock_smtp_instance
+        mock_smtp.SMTP.return_value.__enter__.return_value = MagicMock()
         success = notifier.send_email(posts)
     assert success is True
-    refreshed = news_store.get_unsent_relevant_posts()
-    assert len(refreshed) == 0  # all marked sent
 
 
-def test_send_email_does_not_mark_sent_on_failure(news_store):
+def test_send_email_returns_false_on_failure(news_store):
     _insert_relevant_post(news_store, "pe2")
     smtp_config = {
         "host": "smtp.fail.com",
@@ -91,8 +88,6 @@ def test_send_email_does_not_mark_sent_on_failure(news_store):
         mock_smtp.SMTP.return_value.__enter__.side_effect = Exception("SMTP error")
         success = notifier.send_email(posts)
     assert success is False
-    remaining = news_store.get_unsent_relevant_posts()
-    assert len(remaining) == 1  # NOT marked sent
 
 
 # ---------------------------------------------------------------------------
@@ -116,6 +111,25 @@ def test_send_webhook_posts_json_payload(news_store):
     assert "json" in call_kwargs.kwargs or len(call_kwargs.args) > 1
 
 
+def test_send_webhook_payload_includes_summary_zh(news_store):
+    _insert_relevant_post(news_store, "pw_zh")
+    news_store.update_post_summary(
+        news_store.query_posts()[0].id, "AI 代理人新進展"
+    )
+    notifier = DigestNotifier(
+        news_store=news_store,
+        smtp_config=None,
+        webhook_url="https://hooks.example.com/abc",
+    )
+    posts = notifier.generate_digest()
+    with patch("app.notifier.digest_notifier.httpx") as mock_httpx:
+        mock_httpx.post.return_value = MagicMock(status_code=200)
+        notifier.send_webhook(posts)
+    payload = mock_httpx.post.call_args.kwargs["json"]
+    assert payload["digest"][0]["summary_zh"] == "AI 代理人新進展"
+    assert "report_markdown" in payload
+
+
 def test_send_webhook_skipped_when_not_configured(news_store):
     _insert_relevant_post(news_store, "pw2")
     notifier = DigestNotifier(
@@ -125,7 +139,6 @@ def test_send_webhook_skipped_when_not_configured(news_store):
     )
     posts = notifier.generate_digest()
     success = notifier.send_webhook(posts)
-    # returns True (no-op) when not configured
     assert success is True
 
 
@@ -141,10 +154,18 @@ def test_run_returns_correct_summary(news_store):
         smtp_config=None,
         webhook_url=None,
     )
-    summary = notifier.run()
-    assert summary["posts_included"] == 3
-    assert summary["email_sent"] is False
-    assert summary["webhook_sent"] is False
+    result = notifier.run()
+    assert result["posts_included"] == 3
+    assert result["email_sent"] is False
+    assert result["webhook_sent"] is False
+
+
+def test_run_marks_sent_when_no_channels_configured(news_store):
+    _insert_relevant_post(news_store, "run_mark1")
+    notifier = DigestNotifier(news_store=news_store, smtp_config=None, webhook_url=None)
+    notifier.run()
+    remaining = news_store.get_unsent_relevant_posts()
+    assert len(remaining) == 0
 
 
 def test_run_does_not_mark_sent_when_any_channel_fails(news_store):
@@ -165,9 +186,39 @@ def test_run_does_not_mark_sent_when_any_channel_fails(news_store):
     ):
         mock_smtp.SMTP.return_value.__enter__.side_effect = Exception("fail")
         mock_httpx.post.return_value = MagicMock(status_code=200)
-        summary = notifier.run()
+        result = notifier.run()
 
-    # email failed → posts NOT marked sent
     remaining = news_store.get_unsent_relevant_posts()
     assert len(remaining) == 1
-    assert summary["email_sent"] is False
+    assert result["email_sent"] is False
+
+
+# ---------------------------------------------------------------------------
+# Summarization integration
+# ---------------------------------------------------------------------------
+
+def test_run_calls_summarization_when_gemini_key_set(news_store):
+    _insert_relevant_post(news_store, "sum_p1")
+    notifier = DigestNotifier(
+        news_store=news_store,
+        smtp_config=None,
+        webhook_url=None,
+        gemini_api_key="fake-key",
+        gemini_model="gemini-2.0-flash",
+    )
+    with patch.object(notifier, "_run_summarization", return_value="# 報告") as mock_sum:
+        notifier.run()
+    mock_sum.assert_called_once()
+
+
+def test_run_skips_summarization_when_no_gemini_key(news_store):
+    _insert_relevant_post(news_store, "sum_p2")
+    notifier = DigestNotifier(
+        news_store=news_store,
+        smtp_config=None,
+        webhook_url=None,
+        gemini_api_key="",
+    )
+    with patch.object(notifier, "_run_summarization") as mock_sum:
+        notifier.run()
+    mock_sum.assert_not_called()
