@@ -78,3 +78,15 @@ export function fetchNews(params: NewsQueryParams = {}): Promise<PaginatedNewsRe
 export function triggerDigest(): Promise<DigestResult> {
   return apiFetch<DigestResult>("/api/digest/trigger", { method: "POST" });
 }
+
+export interface Report {
+  id: number;
+  generated_at: string;
+  content: string;
+  post_count: number;
+  model_used: string;
+}
+
+export function fetchLatestReport(): Promise<Report> {
+  return apiFetch<Report>("/api/summary/latest");
+}
