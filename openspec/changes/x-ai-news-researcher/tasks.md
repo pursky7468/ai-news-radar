@@ -149,15 +149,61 @@
 
 ---
 
-## 目前狀態 (2026-04-02)
+## 12. AI Summarizer — Gemini API 中文每日彙整
 
-**Phase 1–11 全部完成。**
+> Plan: `C:\Users\User\.claude\plans\gemini-summarizer.md`
+> Spec: `openspec/changes/x-ai-news-researcher/specs/ai-summarizer/spec.md`
+
+### 12.1 依賴與設定
+- [ ] 12.1.1 `pyproject.toml` — 加入 `google-generativeai` 依賴
+- [ ] 12.1.2 `config.py` — 加入 `gemini_api_key`, `gemini_model`, `summary_post_limit`, `summary_schedule`
+- [ ] 12.1.3 `.env.example` — 加入 `GEMINI_API_KEY`, `GEMINI_MODEL`, `SUMMARY_POST_LIMIT`, `SUMMARY_SCHEDULE`
+
+### 12.2 DB Schema
+- [ ] 12.2.1 `models.py` — 加入 `Report` model（`id`, `generated_at`, `content`, `post_count`, `model_used`）
+- [ ] 12.2.2 `alembic/versions/004_add_reports.py` — 新 migration，`batch_alter_table(recreate="always")`
+
+### 12.3 GeminiClient
+- [ ] 12.3.1 `backend/app/summarizer/gemini_client.py` — 封裝 `google-generativeai` SDK；`summarize_post(post) -> str`；retry on 429（sleep 60s, once）；fallback to excerpt on failure
+- [ ] 12.3.2 rate limit：每次 call 之間 sleep 4 秒（free tier 15 RPM 安全邊際）
+
+### 12.4 SummaryGenerator
+- [ ] 12.4.1 `backend/app/summarizer/summary_generator.py` — `generate(posts) -> str`；per-post call GeminiClient；local assembly 成 Markdown 報告（依 label 分組）
+- [ ] 12.4.2 Markdown 結構：標題含日期、各 label section、每篇含來源 badge + points + 中文摘要 + 連結
+
+### 12.5 ReportStore
+- [ ] 12.5.1 `backend/app/store/news_store.py` — 加入 `save_report(content, post_count, model_used)` 和 `get_latest_report() -> Report | None`
+
+### 12.6 API endpoints
+- [ ] 12.6.1 `backend/app/api/routes/summary.py` — `POST /api/summary/generate`（需 API key；503 if no Gemini key）
+- [ ] 12.6.2 `backend/app/api/routes/summary.py` — `GET /api/summary/latest`（需 API key；404 if none）
+- [ ] 12.6.3 `backend/app/schemas.py` — 加入 `ReportResponse`（`id`, `generated_at`, `content`, `post_count`, `model_used`）
+- [ ] 12.6.4 `backend/app/main.py` — 註冊 summary router
+
+### 12.7 Scheduler
+- [ ] 12.7.1 `backend/app/pipeline/scheduler.py` — 加入 `summary_job`，依 `SUMMARY_SCHEDULE` cron 執行；key 不存在則 skip
+
+### 12.8 Tests (TDD)
+- [ ] 12.8.1 `backend/tests/test_gemini_client.py` — mock `google.generativeai`；assert summary returned；assert 429 retry；assert fallback on failure
+- [ ] 12.8.2 `backend/tests/test_summary_generator.py` — mock GeminiClient；assert report Markdown structure；assert empty posts → no report；assert label grouping
+- [ ] 12.8.3 `backend/tests/test_api.py` — `test_summary_generate_returns_report`；`test_summary_latest_not_found`；`test_summary_no_key_returns_503`
+
+### 12.9 End-to-End Validation
+- [ ] 12.9.1 設定 `GEMINI_API_KEY`，呼叫 `POST /api/summary/generate`，確認回傳中文報告
+- [ ] 12.9.2 確認報告依 label 分組、連結正確、points badge 顯示
+
+---
+
+## 目前狀態 (2026-04-03)
+
+**Phase 1–11 全部完成。Phase 12（AI Summarizer）規格已建立，計畫已建立，待實作。**
 
 | 項目 | 說明 |
 |------|------|
 | 10.4 | ✅ 完成 2026-03-31：source badge / filter / auto-refresh 手動驗證通過 |
 | 10.5 | ✅ 完成 2026-03-31：本地 capture server 確認 payload 包含 `source` 欄位 |
 | 11.x | ✅ 完成 2026-04-02：HN dual links + community vote count 全部實作並通過測試 |
+| 12.x | ⏳ 待實作：Gemini API 中文每日彙整（見 tasks 第 12 節）|
 
 ### 重要的已知修復（非 task 清單內）
 

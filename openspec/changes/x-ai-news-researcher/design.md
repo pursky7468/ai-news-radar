@@ -124,6 +124,27 @@ Backend test stack: `pytest` + `pytest-asyncio` + `pytest-cov` + `factory-boy` (
 
 **Rollback**: Scheduler can be disabled by stopping the service. The schema migration from `x_post_id` to `(source, external_id)` is a one-time destructive migration applied at initial deployment; no rollback migration is provided since this is a greenfield service with no production data to preserve.
 
+---
+
+### 8. AI Summarizer: Google Gemini API (free tier)
+
+**Decision**: Use `gemini-2.0-flash` via `google-generativeai` Python SDK to generate Traditional Chinese (zh-TW) summaries of relevant posts. Feature is optional and gated by `GEMINI_API_KEY`.
+
+**Rationale**: Gemini 2.0 Flash offers a free tier (1,500 req/day, 1M tokens/day) sufficient for PoC validation with 20 posts/day. Avoids paid Claude API dependency while validating the summarization workflow. The free quota covers daily operation without cost.
+
+**Report format**: Per-post Chinese summary (≤100 chars) generated individually, then assembled locally into a Markdown report grouped by label. Local assembly avoids a second Gemini call and is more reliable.
+
+**Graceful degradation**: If `GEMINI_API_KEY` is absent or a call fails, the system falls back to an untranslated excerpt. The pipeline never blocks on summarization failure.
+
+**Alternatives considered**:
+- Claude API: Most accurate but paid. Deferred until PoC validates the value of AI summarization.
+- Ollama (local): Free but requires GPU/RAM; not suitable for lightweight deployment. Can replace Gemini in v2 for offline use.
+- Batch summarization (one call for all posts): Simpler but harder to handle partial failures and harder to cache per-post results.
+
+**Rate limit handling**: Gemini free tier is 15 RPM. The system adds a 4-second delay between post-level calls to stay within limits comfortably.
+
+---
+
 ## Open Questions
 
 - Should the digest be sent via email (SendGrid) or webhook (Slack/Discord)? → Default to both, configurable per environment.

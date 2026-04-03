@@ -20,6 +20,7 @@ AI is evolving at a rapid pace, and staying current with developments in AI agen
 - `digest-notifier`: Generates periodic digests of top-ranked posts and delivers them via email or webhook on a configurable schedule.
 - `news-api`: REST API exposing endpoints to list, search, and filter curated news items. Supports pagination, topic filtering, and source filtering.
 - `news-dashboard`: Web UI for browsing, searching, and exploring the latest AI news from multiple sources.
+- `ai-summarizer`: Uses Google Gemini API (free tier) to generate Traditional Chinese (zh-TW) summaries for relevant posts and assembles them into a structured daily Markdown report grouped by topic. Gated by `GEMINI_API_KEY`; gracefully disabled if key is absent.
 
 ### Modified Capabilities
 
