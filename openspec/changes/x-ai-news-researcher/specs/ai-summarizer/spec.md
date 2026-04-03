@@ -119,6 +119,30 @@ The existing digest delivery channels SHALL be enhanced to include Chinese conte
 
 ---
 
+### Requirement: Daily auto-run digest with recent-posts filter
+
+The system SHALL automatically generate a daily digest report without requiring manual intervention. Each report SHALL only include posts published within a configurable lookback window (default 48 hours), preventing stale or historically re-surfaced articles from appearing in the report.
+
+#### Scenario: Backend starts with no report today
+- **WHEN** the backend starts (or restarts)
+- **AND** no report has been generated in the past 23 hours
+- **THEN** a digest is triggered immediately on startup as a catch-up
+
+#### Scenario: Scheduled daily run
+- **WHEN** the `DIGEST_CRON` schedule fires (default: 08:00 daily)
+- **THEN** a digest is generated for posts published within the last `DIGEST_LOOKBACK_HOURS` hours
+
+#### Scenario: Old posts excluded
+- **WHEN** a digest runs
+- **AND** a post has `posted_at` older than `DIGEST_LOOKBACK_HOURS` hours
+- **THEN** that post is excluded from the report regardless of its relevance score
+
+#### Scenario: No recent posts
+- **WHEN** a digest runs and no posts fall within the lookback window
+- **THEN** no report is generated and the run exits silently
+
+---
+
 ### Requirement: Source configuration via environment
 
 | Variable | Default | Description |
@@ -128,6 +152,7 @@ The existing digest delivery channels SHALL be enhanced to include Chinese conte
 | `GEMINI_API_KEY` | _(empty)_ | Google AI Studio API key; used as fallback if `GROQ_API_KEY` is absent |
 | `GEMINI_MODEL` | `gemini-2.0-flash` | Gemini model name |
 | `SUMMARY_POST_LIMIT` | `20` | Max posts to summarize per digest run |
+| `DIGEST_LOOKBACK_HOURS` | `48` | Only include posts published within this many hours |
 
 **Provider priority**: `GROQ_API_KEY` takes precedence. If both are set, Groq is used. If neither is set, summarization is skipped.
 

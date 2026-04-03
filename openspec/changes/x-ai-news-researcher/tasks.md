@@ -257,6 +257,49 @@
 
 ---
 
+## 14. Daily Auto-Run + Recent Posts Filter
+
+> Spec: `specs/ai-summarizer/spec.md` (Requirement: Daily auto-run digest with recent-posts filter)
+>
+> **目標**：解決兩個實際使用問題：
+> 1. 報告只有在手動觸發時才生成 → 改為每日自動 + 啟動補跑
+> 2. 舊文章（如 2007 年 HN 文章）混入報告 → 改為只取近期發布的文章
+
+### 14.1 Config
+
+- [ ] 14.1.1 `config.py` — 新增 `digest_lookback_hours: int = 48`
+- [ ] 14.1.2 `.env` — 新增 `DIGEST_LOOKBACK_HOURS=48`
+
+### 14.2 NewsStore
+
+- [ ] 14.2.1 `news_store.py` — `get_unsent_relevant_posts(limit, since=None)` 加入 `since: datetime | None` 參數，當有值時加 `WHERE posted_at >= since` 條件
+
+### 14.3 DigestNotifier
+
+- [ ] 14.3.1 `digest_notifier.py` — `__init__` 加入 `lookback_hours: int = 48`
+- [ ] 14.3.2 `digest_notifier.py` — `generate_digest()` 計算 `since = now - timedelta(hours=lookback_hours)` 並傳入 store
+- [ ] 14.3.3 `digest.py` (API route) — 傳入 `lookback_hours=settings.digest_lookback_hours`
+- [ ] 14.3.4 `scheduler.py` — 傳入 `lookback_hours=settings.digest_lookback_hours`
+
+### 14.4 Startup Catch-up
+
+- [ ] 14.4.1 `main.py` (lifespan) — 啟動時檢查過去 23 小時內是否有 report；若無，在背景執行一次 digest
+- [ ] 14.4.2 Catch-up 使用獨立 DB session，避免阻塞啟動流程（用 `threading.Thread`）
+
+### 14.5 Tests
+
+- [ ] 14.5.1 `test_news_store.py` — `get_unsent_relevant_posts` 含 `since` 參數：舊文章被過濾
+- [ ] 14.5.2 `test_digest_notifier.py` — `generate_digest()` 傳入正確的 `since` 給 store
+- [ ] 14.5.3 `test_digest_notifier.py` — `lookback_hours=0` 時不篩選（向下相容）
+
+### 14.6 End-to-End Validation
+
+- [ ] 14.6.1 重啟 backend，確認啟動時自動生成一份含近期文章的報告
+- [ ] 14.6.2 確認 2007 年文章不再出現在報告中
+- [ ] 14.6.3 `http://localhost:3000/report` 日期 Pill 按預期更新
+
+---
+
 ## 目前狀態 (2026-04-03)
 
 **Phase 1–13 全部完成。**
