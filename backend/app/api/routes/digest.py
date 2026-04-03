@@ -18,6 +18,10 @@ def trigger_digest(db: Session = Depends(get_db)):
         news_store=store,
         smtp_config=settings.smtp_config,
         webhook_url=settings.digest_webhook_url,
+        gemini_api_key=settings.gemini_api_key,
+        gemini_model=settings.gemini_model,
+        groq_api_key=settings.groq_api_key,
+        groq_model=settings.groq_model,
     )
     summary = notifier.run()
     return DigestTriggerResult(**summary)

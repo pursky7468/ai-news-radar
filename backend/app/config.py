@@ -53,6 +53,10 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-2.0-flash"
     summary_post_limit: int = 20
 
+    # Groq AI Summarizer (optional — takes priority over Gemini if both set)
+    groq_api_key: str = ""
+    groq_model: str = "llama-3.3-70b-versatile"
+
     @property
     def hn_keywords_list(self) -> list[str]:
         return [k.strip() for k in self.hn_keywords.split(",") if k.strip()]

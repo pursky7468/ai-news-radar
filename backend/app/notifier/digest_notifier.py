@@ -24,6 +24,8 @@ class DigestNotifier:
         top_n: int = 20,
         gemini_api_key: str = "",
         gemini_model: str = "gemini-2.0-flash",
+        groq_api_key: str = "",
+        groq_model: str = "llama-3.3-70b-versatile",
     ) -> None:
         self._store = news_store
         self._smtp = smtp_config
@@ -31,6 +33,8 @@ class DigestNotifier:
         self._top_n = top_n
         self._gemini_api_key = gemini_api_key
         self._gemini_model = gemini_model
+        self._groq_api_key = groq_api_key
+        self._groq_model = groq_model
 
     # ------------------------------------------------------------------
     # Orchestration
@@ -41,9 +45,9 @@ class DigestNotifier:
         if not posts:
             return {"posts_included": 0, "email_sent": False, "webhook_sent": False}
 
-        # AI summarization — optional, gated by GEMINI_API_KEY
+        # AI summarization — optional, gated by GROQ_API_KEY or GEMINI_API_KEY
         report_markdown: Optional[str] = None
-        if self._gemini_api_key:
+        if self._groq_api_key or self._gemini_api_key:
             report_markdown = self._run_summarization(posts)
 
         email_ok = self.send_email(posts, report_markdown) if self._smtp else False
@@ -60,6 +64,8 @@ class DigestNotifier:
         if all_ok and posts:
             self._store.mark_digest_sent([p.id for p in posts])
 
+        self._store.commit()
+
         return {
             "posts_included": len(posts),
             "email_sent": email_ok,
@@ -67,12 +73,19 @@ class DigestNotifier:
         }
 
     def _run_summarization(self, posts: list[Post]) -> Optional[str]:
-        """Run Gemini summarization and assemble report. Returns Markdown or None on total failure."""
+        """Run AI summarization and assemble report. Returns Markdown or None on total failure."""
         try:
-            from app.summarizer.gemini_client import GeminiClient
             from app.summarizer.summary_generator import SummaryGenerator
 
-            client = GeminiClient(self._gemini_api_key, self._gemini_model)
+            if self._groq_api_key:
+                from app.summarizer.groq_client import GroqClient
+                client = GroqClient(self._groq_api_key, self._groq_model)
+                model_used = self._groq_model
+            else:
+                from app.summarizer.gemini_client import GeminiClient
+                client = GeminiClient(self._gemini_api_key, self._gemini_model)
+                model_used = self._gemini_model
+
             generator = SummaryGenerator(client, self._store)
             generator.summarize_batch(posts)
 
@@ -85,7 +98,7 @@ class DigestNotifier:
                 self._store.save_report(
                     content=report_content,
                     post_count=len(posts),
-                    model_used=self._gemini_model,
+                    model_used=model_used,
                 )
             return report_content or None
         except Exception as exc:

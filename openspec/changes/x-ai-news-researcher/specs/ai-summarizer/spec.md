@@ -123,6 +123,29 @@ The existing digest delivery channels SHALL be enhanced to include Chinese conte
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `GEMINI_API_KEY` | _(empty)_ | Google AI Studio API key; feature disabled if absent |
+| `GROQ_API_KEY` | _(empty)_ | Groq API key (recommended, free tier); takes priority over Gemini if both set |
+| `GROQ_MODEL` | `llama-3.3-70b-versatile` | Groq model name |
+| `GEMINI_API_KEY` | _(empty)_ | Google AI Studio API key; used as fallback if `GROQ_API_KEY` is absent |
 | `GEMINI_MODEL` | `gemini-2.0-flash` | Gemini model name |
 | `SUMMARY_POST_LIMIT` | `20` | Max posts to summarize per digest run |
+
+**Provider priority**: `GROQ_API_KEY` takes precedence. If both are set, Groq is used. If neither is set, summarization is skipped.
+
+---
+
+### Requirement: Groq provider support
+
+The system SHALL support Groq as an alternative AI summarization provider, using the same `summarize_post` interface as Gemini.
+
+#### Scenario: Groq key configured
+- **WHEN** `GROQ_API_KEY` is set (regardless of `GEMINI_API_KEY`)
+- **THEN** `GroqClient` is used for summarization with the configured `GROQ_MODEL`
+
+#### Scenario: Only Gemini key configured
+- **WHEN** `GROQ_API_KEY` is empty and `GEMINI_API_KEY` is set
+- **THEN** `GeminiClient` is used as fallback
+
+#### Scenario: Groq 429 rate limit
+- **WHEN** Groq API returns HTTP 429
+- **THEN** the system waits 60 seconds and retries once
+- **AND** if retry fails, falls back to first 50 characters of `content`

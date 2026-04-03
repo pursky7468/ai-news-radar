@@ -86,6 +86,8 @@ def start_scheduler() -> None:
         webhook_url=settings.digest_webhook_url,
         gemini_api_key=settings.gemini_api_key,
         gemini_model=settings.gemini_model,
+        groq_api_key=settings.groq_api_key,
+        groq_model=settings.groq_model,
     )
     _scheduler = build_scheduler(
         fetch_interval_minutes=settings.fetch_interval_minutes,

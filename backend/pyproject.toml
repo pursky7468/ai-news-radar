@@ -21,6 +21,7 @@ dependencies = [
     "pydantic-settings>=2.2.0",
     "aiosmtplib>=3.0.0",
     "google-generativeai>=0.8.0",
+    "groq>=1.0.0",
 ]
 
 [project.optional-dependencies]
