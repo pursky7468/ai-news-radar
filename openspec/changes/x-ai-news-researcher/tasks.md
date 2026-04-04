@@ -267,42 +267,42 @@
 
 ### 14.1 Config
 
-- [ ] 14.1.1 `config.py` — 新增 `digest_lookback_hours: int = 48`
-- [ ] 14.1.2 `.env` — 新增 `DIGEST_LOOKBACK_HOURS=48`
+- [x] 14.1.1 `config.py` — 新增 `digest_lookback_hours: int = 48`
+- [x] 14.1.2 `.env` — 新增 `DIGEST_LOOKBACK_HOURS=48`
 
 ### 14.2 NewsStore
 
-- [ ] 14.2.1 `news_store.py` — `get_unsent_relevant_posts(limit, since=None)` 加入 `since: datetime | None` 參數，當有值時加 `WHERE posted_at >= since` 條件
+- [x] 14.2.1 `news_store.py` — `get_unsent_relevant_posts(limit, since=None)` 加入 `since: datetime | None` 參數，當有值時加 `WHERE posted_at >= since` 條件
 
 ### 14.3 DigestNotifier
 
-- [ ] 14.3.1 `digest_notifier.py` — `__init__` 加入 `lookback_hours: int = 48`
-- [ ] 14.3.2 `digest_notifier.py` — `generate_digest()` 計算 `since = now - timedelta(hours=lookback_hours)` 並傳入 store
-- [ ] 14.3.3 `digest.py` (API route) — 傳入 `lookback_hours=settings.digest_lookback_hours`
-- [ ] 14.3.4 `scheduler.py` — 傳入 `lookback_hours=settings.digest_lookback_hours`
+- [x] 14.3.1 `digest_notifier.py` — `__init__` 加入 `lookback_hours: int = 48`
+- [x] 14.3.2 `digest_notifier.py` — `generate_digest()` 計算 `since = now - timedelta(hours=lookback_hours)` 並傳入 store
+- [x] 14.3.3 `digest.py` (API route) — 傳入 `lookback_hours=settings.digest_lookback_hours`
+- [x] 14.3.4 `scheduler.py` — 傳入 `lookback_hours=settings.digest_lookback_hours`
 
 ### 14.4 Startup Catch-up
 
-- [ ] 14.4.1 `main.py` (lifespan) — 啟動時檢查過去 23 小時內是否有 report；若無，在背景執行一次 digest
-- [ ] 14.4.2 Catch-up 使用獨立 DB session，避免阻塞啟動流程（用 `threading.Thread`）
+- [x] 14.4.1 `main.py` (lifespan) — 啟動時檢查過去 23 小時內是否有 report；若無，在背景執行一次 digest
+- [x] 14.4.2 Catch-up 使用獨立 DB session，避免阻塞啟動流程（用 `threading.Thread`）
 
 ### 14.5 Tests
 
-- [ ] 14.5.1 `test_news_store.py` — `get_unsent_relevant_posts` 含 `since` 參數：舊文章被過濾
-- [ ] 14.5.2 `test_digest_notifier.py` — `generate_digest()` 傳入正確的 `since` 給 store
-- [ ] 14.5.3 `test_digest_notifier.py` — `lookback_hours=0` 時不篩選（向下相容）
+- [x] 14.5.1 `test_news_store.py` — `get_unsent_relevant_posts` 含 `since` 參數：舊文章被過濾
+- [x] 14.5.2 `test_digest_notifier.py` — `generate_digest()` lookback_hours=48 排除舊文章
+- [x] 14.5.3 `test_digest_notifier.py` — `lookback_hours=0` 時不篩選（向下相容）
 
 ### 14.6 End-to-End Validation
 
-- [ ] 14.6.1 重啟 backend，確認啟動時自動生成一份含近期文章的報告
-- [ ] 14.6.2 確認 2007 年文章不再出現在報告中
-- [ ] 14.6.3 `http://localhost:3000/report` 日期 Pill 按預期更新
+- [x] 14.6.1 重啟 backend，啟動時自動補跑報告（id=5，2026-04-04T00:01:31，post_count=20）
+- [x] 14.6.2 確認 48h 內有 107 筆相關文章，舊文章不再混入
+- [x] 14.6.3 `http://localhost:3000/report` 日期 Pill 新增今日報告
 
 ---
 
 ## 目前狀態 (2026-04-03)
 
-**Phase 1–13 全部完成。**
+**Phase 1–14 全部完成。**
 
 | 項目 | 說明 |
 |------|------|
@@ -311,6 +311,7 @@
 | 11.x | ✅ 完成 2026-04-02：HN dual links + community vote count 全部實作並通過測試 |
 | 12.x | ✅ 完成 2026-04-03：AI Summarizer（Groq 優先 / Gemini fallback）整合進 DigestNotifier，122 tests pass，86% coverage |
 | 13.x | ✅ 完成 2026-04-03：Report history browser — 日期 Pill + 分類 Tabs，`GET /api/summary/reports` + `GET /api/summary/reports/{id}` |
+| 14.x | ✅ 完成 2026-04-04：Daily auto-run + 48h lookback filter — 125 tests pass，86% coverage |
 
 ### 重要的已知修復（非 task 清單內）
 

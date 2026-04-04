@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 import smtplib
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import Optional
@@ -26,6 +26,7 @@ class DigestNotifier:
         gemini_model: str = "gemini-2.0-flash",
         groq_api_key: str = "",
         groq_model: str = "llama-3.3-70b-versatile",
+        lookback_hours: int = 48,
     ) -> None:
         self._store = news_store
         self._smtp = smtp_config
@@ -35,6 +36,7 @@ class DigestNotifier:
         self._gemini_model = gemini_model
         self._groq_api_key = groq_api_key
         self._groq_model = groq_model
+        self._lookback_hours = lookback_hours
 
     # ------------------------------------------------------------------
     # Orchestration
@@ -110,7 +112,10 @@ class DigestNotifier:
     # ------------------------------------------------------------------
 
     def generate_digest(self) -> list[Post]:
-        return self._store.get_unsent_relevant_posts(limit=self._top_n)
+        since = None
+        if self._lookback_hours > 0:
+            since = datetime.now(timezone.utc) - timedelta(hours=self._lookback_hours)
+        return self._store.get_unsent_relevant_posts(limit=self._top_n, since=since)
 
     # ------------------------------------------------------------------
     # Email delivery

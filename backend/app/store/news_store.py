@@ -158,14 +158,16 @@ class NewsStore:
                                 is_relevant=is_relevant)
         return q.scalar() or 0
 
-    def get_unsent_relevant_posts(self, limit: int = 20) -> list[Post]:
-        return (
+    def get_unsent_relevant_posts(
+        self, limit: int = 20, since: Optional[datetime] = None
+    ) -> list[Post]:
+        q = (
             self._session.query(Post)
             .filter(Post.is_relevant == True, Post.digest_sent == False)
-            .order_by(Post.relevance_score.desc().nullslast())
-            .limit(limit)
-            .all()
         )
+        if since is not None:
+            q = q.filter(Post.posted_at >= since)
+        return q.order_by(Post.relevance_score.desc().nullslast()).limit(limit).all()
 
     def get_post_by_id(self, post_id: int) -> Optional[Post]:
         return self._session.get(Post, post_id)

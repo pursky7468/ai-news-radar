@@ -149,6 +149,19 @@ def test_get_unsent_relevant_posts(news_store: NewsStore):
     assert results[0].external_id == "p1"
 
 
+def test_get_unsent_relevant_posts_since_filters_old(news_store: NewsStore):
+    now = datetime.now(timezone.utc)
+    recent = make_post(external_id="recent", posted_at=now - timedelta(hours=24))
+    old = make_post(external_id="old", posted_at=now - timedelta(hours=72))
+    news_store.upsert_post(recent)
+    news_store.upsert_post(old)
+    since = now - timedelta(hours=48)
+    results = news_store.get_unsent_relevant_posts(since=since)
+    ids = [r.external_id for r in results]
+    assert "recent" in ids
+    assert "old" not in ids
+
+
 # ---------------------------------------------------------------------------
 # System state (last_fetch_at)
 # ---------------------------------------------------------------------------

@@ -22,6 +22,7 @@ def trigger_digest(db: Session = Depends(get_db)):
         gemini_model=settings.gemini_model,
         groq_api_key=settings.groq_api_key,
         groq_model=settings.groq_model,
+        lookback_hours=settings.digest_lookback_hours,
     )
     summary = notifier.run()
     return DigestTriggerResult(**summary)

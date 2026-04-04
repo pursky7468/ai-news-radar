@@ -1,5 +1,5 @@
 """Tests for DigestNotifier — TDD Red/Green cycle."""
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -15,7 +15,7 @@ def _insert_relevant_post(news_store, external_id: str, score: float = 8.0,
         "author_handle": "researcher",
         "content": f"AI agent post #{external_id}",
         "url": f"https://news.ycombinator.com/item?id={external_id}",
-        "posted_at": datetime(2026, 3, 1, tzinfo=timezone.utc),
+        "posted_at": datetime.now(timezone.utc) - timedelta(hours=1),
         "relevance_score": score,
         "is_relevant": True,
         "digest_sent": False,
@@ -222,3 +222,49 @@ def test_run_skips_summarization_when_no_gemini_key(news_store):
     with patch.object(notifier, "_run_summarization") as mock_sum:
         notifier.run()
     mock_sum.assert_not_called()
+
+
+def test_generate_digest_with_lookback_excludes_old_posts(news_store):
+    now = datetime.now(timezone.utc)
+    _insert_relevant_post_at(news_store, "new_post", now - timedelta(hours=24))
+    _insert_relevant_post_at(news_store, "old_post", now - timedelta(hours=72))
+    notifier = DigestNotifier(
+        news_store=news_store,
+        smtp_config=None,
+        webhook_url=None,
+        lookback_hours=48,
+    )
+    posts = notifier.generate_digest()
+    ids = [p.external_id for p in posts]
+    assert "new_post" in ids
+    assert "old_post" not in ids
+
+
+def test_generate_digest_lookback_zero_includes_all(news_store):
+    now = datetime.now(timezone.utc)
+    _insert_relevant_post_at(news_store, "new_post", now - timedelta(hours=24))
+    _insert_relevant_post_at(news_store, "old_post", now - timedelta(hours=720))
+    notifier = DigestNotifier(
+        news_store=news_store,
+        smtp_config=None,
+        webhook_url=None,
+        lookback_hours=0,
+    )
+    posts = notifier.generate_digest()
+    ids = [p.external_id for p in posts]
+    assert "new_post" in ids
+    assert "old_post" in ids
+
+
+def _insert_relevant_post_at(news_store, external_id: str, posted_at: datetime):
+    news_store.upsert_post({
+        "source": "hackernews",
+        "external_id": external_id,
+        "author_handle": "researcher",
+        "content": f"AI post #{external_id}",
+        "url": f"https://news.ycombinator.com/item?id={external_id}",
+        "posted_at": posted_at,
+        "relevance_score": 8.0,
+        "is_relevant": True,
+        "digest_sent": False,
+    })

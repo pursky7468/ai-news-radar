@@ -88,6 +88,7 @@ def start_scheduler() -> None:
         gemini_model=settings.gemini_model,
         groq_api_key=settings.groq_api_key,
         groq_model=settings.groq_model,
+        lookback_hours=settings.digest_lookback_hours,
     )
     _scheduler = build_scheduler(
         fetch_interval_minutes=settings.fetch_interval_minutes,

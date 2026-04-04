@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     # Scheduler
     fetch_interval_minutes: int = 15
     digest_cron: str = "0 8 * * *"
+    digest_lookback_hours: int = 48
 
     # Scoring
     relevance_threshold: float = 5.0
