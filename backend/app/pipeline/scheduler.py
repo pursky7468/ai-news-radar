@@ -89,6 +89,7 @@ def start_scheduler() -> None:
         groq_api_key=settings.groq_api_key,
         groq_model=settings.groq_model,
         lookback_hours=settings.digest_lookback_hours,
+        briefings_output_dir=settings.briefings_output_dir or None,
     )
     _scheduler = build_scheduler(
         fetch_interval_minutes=settings.fetch_interval_minutes,

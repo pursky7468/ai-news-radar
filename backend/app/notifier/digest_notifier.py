@@ -27,6 +27,7 @@ class DigestNotifier:
         groq_api_key: str = "",
         groq_model: str = "llama-3.3-70b-versatile",
         lookback_hours: int = 48,
+        briefings_output_dir: Optional[str] = None,
     ) -> None:
         self._store = news_store
         self._smtp = smtp_config
@@ -37,6 +38,7 @@ class DigestNotifier:
         self._groq_api_key = groq_api_key
         self._groq_model = groq_model
         self._lookback_hours = lookback_hours
+        self._briefings_output_dir = briefings_output_dir
 
     # ------------------------------------------------------------------
     # Orchestration
@@ -51,6 +53,10 @@ class DigestNotifier:
         report_markdown: Optional[str] = None
         if self._groq_api_key or self._gemini_api_key:
             report_markdown = self._run_summarization(posts)
+
+        # Generate developer briefing from the digest report
+        if report_markdown and self._groq_api_key and self._briefings_output_dir:
+            self._run_briefing(report_markdown)
 
         email_ok = self.send_email(posts, report_markdown) if self._smtp else False
         webhook_ok = self.send_webhook(posts, report_markdown) if self._webhook_url else False
@@ -106,6 +112,19 @@ class DigestNotifier:
         except Exception as exc:
             logger.error("Summarization pipeline failed: %s", exc)
             return None
+
+    def _run_briefing(self, report_markdown: str) -> None:
+        """Generate and save a developer briefing Markdown file."""
+        try:
+            from app.briefing.briefing_generator import BriefingGenerator
+            gen = BriefingGenerator(
+                groq_api_key=self._groq_api_key,
+                groq_model=self._groq_model,
+                output_dir=self._briefings_output_dir,
+            )
+            gen.generate(report_markdown)
+        except Exception as exc:
+            logger.error("Briefing generation failed: %s", exc)
 
     # ------------------------------------------------------------------
     # Digest generation

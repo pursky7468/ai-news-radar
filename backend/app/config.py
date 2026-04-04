@@ -58,6 +58,9 @@ class Settings(BaseSettings):
     groq_api_key: str = ""
     groq_model: str = "llama-3.3-70b-versatile"
 
+    # Daily briefing output directory (relative to repo root; empty = disabled)
+    briefings_output_dir: str = "briefings"
+
     @property
     def hn_keywords_list(self) -> list[str]:
         return [k.strip() for k in self.hn_keywords.split(",") if k.strip()]
