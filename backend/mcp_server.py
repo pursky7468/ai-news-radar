@@ -29,9 +29,10 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-# Resolve backend package path
-_BACKEND_DIR = Path(__file__).parent
+# Resolve backend package path and set cwd so relative DB paths work correctly
+_BACKEND_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_BACKEND_DIR))
+os.chdir(_BACKEND_DIR)  # ensures sqlite:///./dev.db resolves to backend/dev.db
 
 from dotenv import load_dotenv
 
