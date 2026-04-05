@@ -268,3 +268,60 @@ def _insert_relevant_post_at(news_store, external_id: str, posted_at: datetime):
         "is_relevant": True,
         "digest_sent": False,
     })
+
+
+# ---------------------------------------------------------------------------
+# reference_time injection (Phase 16)
+# ---------------------------------------------------------------------------
+
+def test_run_with_reference_time_uses_correct_window(news_store):
+    """generate_digest with reference_time=T should use since = T - lookback_hours."""
+    now = datetime.now(timezone.utc)
+    ref = now - timedelta(days=2)  # two days ago
+
+    # post inside the ref window (ref - 24h)
+    _insert_relevant_post_at(news_store, "in_window", ref - timedelta(hours=24))
+    # post outside the ref window (ref - 60h, but inside "real now - 48h" window)
+    _insert_relevant_post_at(news_store, "out_of_window", ref - timedelta(hours=60))
+
+    notifier = DigestNotifier(
+        news_store=news_store,
+        smtp_config=None,
+        webhook_url=None,
+        lookback_hours=48,
+    )
+    posts = notifier.generate_digest(reference_time=ref)
+    ids = [p.external_id for p in posts]
+    assert "in_window" in ids
+    assert "out_of_window" not in ids
+
+
+def test_run_summarization_uses_reference_time_as_date_string(news_store):
+    """_run_summarization should use reference_time's date for the report title, not today."""
+    ref = datetime(2026, 1, 15, 8, 0, 0, tzinfo=timezone.utc)
+    _insert_relevant_post_at(news_store, "p1", ref - timedelta(hours=1))
+    news_store.commit()
+
+    captured_date: list[str] = []
+
+    class FakeGenerator:
+        def summarize_batch(self, posts): pass
+        def assemble_report(self, posts, date_str):
+            captured_date.append(date_str)
+            return f"# Report {date_str}"
+
+    notifier = DigestNotifier(
+        news_store=news_store,
+        smtp_config=None,
+        webhook_url=None,
+        groq_api_key="fake-key",
+    )
+    with patch("app.summarizer.groq_client.GroqClient"), \
+         patch("app.summarizer.summary_generator.SummaryGenerator", return_value=FakeGenerator()):
+        notifier._run_summarization(
+            [news_store.get_unsent_relevant_posts(limit=1)[0]],
+            reference_time=ref,
+        )
+
+    assert len(captured_date) == 1
+    assert captured_date[0] == "2026-01-15"

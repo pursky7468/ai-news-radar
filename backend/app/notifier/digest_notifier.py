@@ -44,15 +44,15 @@ class DigestNotifier:
     # Orchestration
     # ------------------------------------------------------------------
 
-    def run(self) -> dict:
-        posts = self.generate_digest()
+    def run(self, reference_time: Optional[datetime] = None) -> dict:
+        posts = self.generate_digest(reference_time=reference_time)
         if not posts:
             return {"posts_included": 0, "email_sent": False, "webhook_sent": False}
 
         # AI summarization — optional, gated by GROQ_API_KEY or GEMINI_API_KEY
         report_markdown: Optional[str] = None
         if self._groq_api_key or self._gemini_api_key:
-            report_markdown = self._run_summarization(posts)
+            report_markdown = self._run_summarization(posts, reference_time=reference_time)
 
         # Generate developer briefing from the digest report
         if report_markdown and self._groq_api_key and self._briefings_output_dir:
@@ -80,7 +80,7 @@ class DigestNotifier:
             "webhook_sent": webhook_ok,
         }
 
-    def _run_summarization(self, posts: list[Post]) -> Optional[str]:
+    def _run_summarization(self, posts: list[Post], reference_time: Optional[datetime] = None) -> Optional[str]:
         """Run AI summarization and assemble report. Returns Markdown or None on total failure."""
         try:
             from app.summarizer.summary_generator import SummaryGenerator
@@ -97,7 +97,8 @@ class DigestNotifier:
             generator = SummaryGenerator(client, self._store)
             generator.summarize_batch(posts)
 
-            today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            ref = reference_time or datetime.now(timezone.utc)
+            today = ref.strftime("%Y-%m-%d")
             # Refresh posts from session to pick up summary_zh values
             refreshed = [self._store.get_post_by_id(p.id) or p for p in posts]
             report_content = generator.assemble_report(refreshed, today)
@@ -130,10 +131,11 @@ class DigestNotifier:
     # Digest generation
     # ------------------------------------------------------------------
 
-    def generate_digest(self) -> list[Post]:
+    def generate_digest(self, reference_time: Optional[datetime] = None) -> list[Post]:
         since = None
         if self._lookback_hours > 0:
-            since = datetime.now(timezone.utc) - timedelta(hours=self._lookback_hours)
+            ref = reference_time or datetime.now(timezone.utc)
+            since = ref - timedelta(hours=self._lookback_hours)
         return self._store.get_unsent_relevant_posts(limit=self._top_n, since=since)
 
     # ------------------------------------------------------------------

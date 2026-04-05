@@ -1,16 +1,51 @@
 """FastAPI application entrypoint."""
+import logging
 import threading
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
+from typing import List
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import digest, health, news, summary
 
+logger = logging.getLogger(__name__)
+
+
+def _get_missing_report_dates(store, max_days: int) -> List[date]:
+    """Return sorted list of UTC calendar dates (up to max_days ago) that have no report."""
+    limit = max(50, max_days * 2)
+    reports = store.get_reports(limit=limit)
+    existing_dates = {
+        r.generated_at.replace(tzinfo=timezone.utc).date()
+        for r in reports
+    }
+
+    now_utc = datetime.now(timezone.utc)
+    today = now_utc.date()
+    missing: List[date] = []
+
+    # Check past days (yesterday and earlier), but only if adjacent to an existing report.
+    # We stop at the first gap to avoid backfilling ancient empty dates that have no data.
+    for days_ago in range(1, max_days + 1):
+        candidate = today - timedelta(days=days_ago)
+        if candidate not in existing_dates:
+            missing.append(candidate)
+        else:
+            # Found an existing report — stop looking further back
+            break
+
+    # Check today only if scheduled time (08:00 UTC) has passed
+    today_scheduled = now_utc.replace(hour=8, minute=0, second=0, microsecond=0)
+    if now_utc >= today_scheduled and today not in existing_dates:
+        missing.append(today)
+
+    return sorted(missing)
+
 
 def _catchup_digest() -> None:
-    """Run a digest in a background thread if no report exists in the last 23 hours."""
+    """On startup, backfill any missing daily reports up to CATCHUP_MAX_DAYS days."""
     try:
         from app.config import settings
         from app.api.deps import _SessionLocal
@@ -19,26 +54,50 @@ def _catchup_digest() -> None:
 
         db = _SessionLocal()
         store = NewsStore(session=db)
-        latest = store.get_latest_report()
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=23)
 
-        if latest is None or latest.generated_at.replace(tzinfo=timezone.utc) < cutoff:
-            notifier = DigestNotifier(
-                news_store=store,
-                smtp_config=settings.smtp_config,
-                webhook_url=settings.digest_webhook_url,
-                gemini_api_key=settings.gemini_api_key,
-                gemini_model=settings.gemini_model,
-                groq_api_key=settings.groq_api_key,
-                groq_model=settings.groq_model,
-                lookback_hours=settings.digest_lookback_hours,
-                briefings_output_dir=settings.briefings_output_dir or None,
+        missing_dates = _get_missing_report_dates(store, settings.catchup_max_days)
+        if not missing_dates:
+            logger.info("Startup catch-up: no missing report dates.")
+            db.close()
+            return
+
+        logger.info("Startup catch-up: found %d missing date(s): %s", len(missing_dates), missing_dates)
+
+        notifier = DigestNotifier(
+            news_store=store,
+            smtp_config=settings.smtp_config,
+            webhook_url=settings.digest_webhook_url,
+            gemini_api_key=settings.gemini_api_key,
+            gemini_model=settings.gemini_model,
+            groq_api_key=settings.groq_api_key,
+            groq_model=settings.groq_model,
+            lookback_hours=settings.digest_lookback_hours,
+            briefings_output_dir=settings.briefings_output_dir or None,
+        )
+
+        for missing_date in missing_dates:
+            ref_time = datetime(
+                missing_date.year, missing_date.month, missing_date.day,
+                8, 0, 0, tzinfo=timezone.utc,
             )
-            notifier.run()
+            # Check if there are any posts in this day's lookback window
+            window_start = ref_time - timedelta(hours=settings.digest_lookback_hours)
+            posts_available = store.get_unsent_relevant_posts(
+                limit=1, since=window_start
+            )
+            if not posts_available:
+                logger.warning(
+                    "Startup catch-up: skipping %s — no posts in window [%s, %s]",
+                    missing_date, window_start.date(), ref_time.date(),
+                )
+                continue
+
+            logger.info("Startup catch-up: running digest for %s (ref_time=%s)", missing_date, ref_time)
+            notifier.run(reference_time=ref_time)
+
         db.close()
     except Exception as exc:
-        import logging
-        logging.getLogger(__name__).error("Startup catch-up digest failed: %s", exc)
+        logger.error("Startup catch-up digest failed: %s", exc)
 
 
 @asynccontextmanager

@@ -359,9 +359,52 @@
 
 ---
 
-## 目前狀態 (2026-04-05)
+## 16. Startup Multi-Day Catch-up（補跑缺失報告）
 
-**Phase 1–15b 全部完成。Phase 15c 待實作。**
+> **問題**：backend 停機多天後重啟，目前只補跑一份，其他天份的報告永久缺失。
+> **解法**：啟動時以 UTC calendar day 掃描缺失日期，循序補跑，最多 `CATCHUP_MAX_DAYS` 天。
+>
+> **架構決策**：
+> - 缺失判斷單位：UTC calendar day（對齊 `digest_cron = "0 8 * * *"`）
+> - 補跑 `reference_time` = 當日 08:00 UTC（對齊排程觸發時間）
+> - 今天只在 `now >= 08:00 UTC` 且無今日報告時才補
+> - `DigestNotifier.run(reference_time=None)` 向後相容，None 時 fallback `datetime.now(UTC)`
+> - 補跑前檢查文章窗口是否有內容，無文章則 log 並跳過（避免空報告無限補跑）
+
+### 16.1 Config
+- [x] 16.1.1 `config.py` — 新增 `catchup_max_days: int = 7`
+- [x] 16.1.2 `.env` / `.env.example` — 新增 `CATCHUP_MAX_DAYS=7`
+
+### 16.2 DigestNotifier（reference_time injection）
+- [x] 16.2.1 `digest_notifier.py` — `run(reference_time=None)` 接受可選 UTC datetime 參數
+- [x] 16.2.2 `digest_notifier.py` — `generate_digest(reference_time=None)` 用 reference_time 計算 `since`，None 時 fallback `datetime.now(UTC)`
+- [x] 16.2.3 `digest_notifier.py` — `_run_summarization(posts, reference_time=None)` 用 reference_time 產生報告日期標題
+
+### 16.3 Main Catchup 邏輯重寫
+- [x] 16.3.1 `main.py` — 新增 `_get_missing_report_dates(store, max_days) -> list[date]`：以 UTC calendar day 比對現有報告，回傳排序過的缺失日期清單（`limit = max(50, max_days * 2)`）
+- [x] 16.3.2 `main.py` — `_catchup_digest()` 重寫：呼叫 helper 取得缺失日期，對每個日期計算 `reference_time = date at 08:00 UTC`，循序呼叫 `notifier.run(reference_time=...)`
+- [x] 16.3.3 `main.py` — 今天的補跑條件：`datetime.now(UTC) >= today_08:00_UTC` 且今天無報告
+- [x] 16.3.4 `main.py` — 補跑前用 `store.get_unsent_relevant_posts(since=window_start)` 確認有文章，否則 log warning 並跳過
+
+### 16.4 Tests
+- [x] 16.4.1 `test_digest_notifier.py` — `test_run_with_reference_time_uses_correct_window`：reference_time=T 時 since = T - lookback_hours
+- [x] 16.4.2 `test_digest_notifier.py` — `test_run_summarization_uses_reference_time_as_date_string`：報告標題日期為 reference_time.date()，非 today
+- [x] 16.4.3 `tests/test_main_catchup.py`（新增）— `test_missing_dates_calculated_correctly`：停機 3 天，回傳正確 3 個缺失日期
+- [x] 16.4.4 `test_main_catchup.py` — `test_existing_report_date_not_included`：已有報告的日期不重複補跑
+- [x] 16.4.5 `test_main_catchup.py` — `test_catchup_respects_max_days_limit`：max_days=3 時只掃 3 天
+- [x] 16.4.6 `test_main_catchup.py` — `test_today_skipped_before_scheduled_time`：08:00 UTC 前不補今天
+- [x] 16.4.7 `test_main_catchup.py` — `test_no_posts_in_window_skips_run`：文章窗口為空時跳過，不呼叫 notifier.run
+
+### 16.5 End-to-End Validation
+- [x] 16.5.1 重啟 backend 確認 `_get_missing_report_dates` 正確回傳空清單（已有 April 3-5 報告）
+- [x] 16.5.2 修復 `_get_missing_report_dates` 邏輯：改為「遇到有報告的日期即停止往回掃」（stop at first existing），避免以 `posted_at` 判斷窗口導致重複補跑
+- [ ] 16.5.3 手動刪除某天 Report 記錄後重啟，確認補跑標題日期正確（待正式環境驗證）
+
+---
+
+## 目前狀態 (2026-04-06)
+
+**Phase 1–15b 全部完成。Phase 15c 待實作。Phase 16 待實作。**
 
 | 項目 | 說明 |
 |------|------|
@@ -374,6 +417,7 @@
 | 15a | ✅ 完成 2026-04-05：BriefingGenerator 自動整合進 DigestNotifier，手動腳本 `generate_briefing.py` |
 | 15b | ✅ 完成 2026-04-05：MCP Server 含 3 個工具，已接入 Claude Code（`✓ Connected`） |
 | 15c | 🚧 規劃中：`add_article` MCP tool（知識庫自我擴充）|
+| 16 | ✅ 完成 2026-04-06：Multi-day catch-up — 133 tests pass，85% coverage；修復 stop-at-first-existing bug |
 
 ### 重要的已知修復（非 task 清單內）
 
