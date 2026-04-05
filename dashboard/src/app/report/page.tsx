@@ -40,6 +40,17 @@ function formatDate(iso: string) {
   });
 }
 
+/** Keep only the latest report per calendar date (dedup by date string). */
+function deduplicateByDate(reports: ReportListItem[]): ReportListItem[] {
+  const seen = new Set<string>();
+  return reports.filter((r) => {
+    const dateKey = new Date(r.generated_at).toLocaleDateString("zh-TW");
+    if (seen.has(dateKey)) return false;
+    seen.add(dateKey);
+    return true;
+  });
+}
+
 type PageState =
   | { status: "loading" }
   | { status: "ok"; reports: ReportListItem[]; report: Report }
@@ -60,8 +71,9 @@ export default function ReportPage() {
           setState({ status: "empty" });
           return;
         }
-        const report = await fetchReportById(reports[0].id);
-        setState({ status: "ok", reports, report });
+        const dedupedReports = deduplicateByDate(reports);
+        const report = await fetchReportById(dedupedReports[0].id);
+        setState({ status: "ok", reports: dedupedReports, report });
       })
       .catch((e: Error) => setState({ status: "error", message: e.message }));
   };
