@@ -300,9 +300,68 @@
 
 ---
 
-## 目前狀態 (2026-04-03)
+## 15. LLM / Agent 整合
 
-**Phase 1–14 全部完成。**
+> Spec: `specs/llm-agent-integration/spec.md`
+
+### Phase 15a：每日技術簡報（自動化）✅ 完成 2026-04-05
+
+- [x] 15a.1 `app/briefing/briefing_generator.py` — BriefingGenerator class：呼叫 Groq，輸出繁體中文開發者簡報
+- [x] 15a.2 `DigestNotifier.__init__` 加入 `briefings_output_dir` 參數
+- [x] 15a.3 `DigestNotifier.run()` — 摘要報告生成後自動呼叫 `_run_briefing()`
+- [x] 15a.4 `config.py` — 新增 `briefings_output_dir: str = "briefings"`
+- [x] 15a.5 `scheduler.py` / `digest.py` / `main.py` — 傳入 `briefings_output_dir`
+- [x] 15a.6 `scripts/generate_briefing.py` — 手動執行版本，呼叫 `/api/summary/latest` → Groq → `briefings/YYYY-MM-DD.md`
+- [x] 15a.7 `.gitignore` — 加入 `briefings/`
+
+### Phase 15b：MCP Server（Claude Code / Desktop 整合）✅ 完成 2026-04-05
+
+- [x] 15b.1 `pyproject.toml` — 新增 `mcp>=1.0.0` 依賴
+- [x] 15b.2 `backend/mcp_server.py` — FastMCP server，直連 SQLite
+- [x] 15b.3 `search_ai_news(query, days=0, limit=10)` — 關鍵字搜尋，`days=0` 不限時間
+- [x] 15b.4 `get_daily_report(date="today")` — 取指定日期報告
+- [x] 15b.5 `get_posts_by_category(category, days=7, limit=10)` — 依分類篩選
+- [x] 15b.6 `os.chdir(_BACKEND_DIR)` — 修正 SQLite 相對路徑問題
+- [x] 15b.7 Claude Code 整合驗證：`claude mcp list` 顯示 `✓ Connected`
+
+### Phase 15c：`add_article` MCP tool — 知識庫自我擴充 🚧 待實作
+
+> **目的**：LLM 在論壇/外部搜尋到 DB 中沒有的技術文章時，可直接寫入知識庫。
+> 加入的文章設 `digest_sent=True` 跳過每日 digest，但 `search_ai_news` 可搜尋。
+
+#### 15c.1 DB Schema — Migration 005
+
+- [ ] 15c.1.1 `models.py` — `Post.url` 欄位加 `index=True`（加速 URL 查詢）
+- [ ] 15c.1.2 `alembic/versions/005_url_index.py` — `batch_alter_table` 加 url index
+
+#### 15c.2 NewsStore
+
+- [ ] 15c.2.1 `news_store.py` — 新增 `get_post_by_url(url: str) -> Post | None`
+- [ ] 15c.2.2 `tests/test_news_store.py` — 新增 `test_get_post_by_url_found` / `test_get_post_by_url_not_found`
+
+#### 15c.3 MCP tool
+
+- [ ] 15c.3.1 `mcp_server.py` — 新增 `add_article(url, content, labels, title="", posted_at="", score=7.0)`
+  - 先呼叫 `get_post_by_url(url)` — 若已存在回傳「已存在」
+  - `source="llm-research"`, `external_id=url`
+  - `digest_sent=True`, `is_relevant=True`
+  - 若 `GROQ_API_KEY` 存在，呼叫 Groq 生成 `summary_zh`
+  - 呼叫 `store.commit()`
+  - 回傳 Markdown 確認訊息（含生成的中文摘要）
+- [ ] 15c.3.2 `posted_at` 解析：接受 `YYYY-MM-DD` 格式，空值預設今天
+
+#### 15c.4 E2E 驗證
+
+- [ ] 15c.4.1 透過 Claude Code 呼叫 `add_article(url=<Reddit URL>, ...)` 確認寫入
+- [ ] 15c.4.2 呼叫 `search_ai_news("NotebookLM")` 確認新文章可被搜尋
+- [ ] 15c.4.3 確認重複加入同 URL 時回傳「已存在」而不重複寫入
+- [ ] 15c.4.4 確認加入文章**不出現**在每日 digest（`digest_sent=True`）
+
+---
+
+## 目前狀態 (2026-04-05)
+
+**Phase 1–15b 全部完成。Phase 15c 待實作。**
 
 | 項目 | 說明 |
 |------|------|
@@ -312,6 +371,9 @@
 | 12.x | ✅ 完成 2026-04-03：AI Summarizer（Groq 優先 / Gemini fallback）整合進 DigestNotifier，122 tests pass，86% coverage |
 | 13.x | ✅ 完成 2026-04-03：Report history browser — 日期 Pill + 分類 Tabs，`GET /api/summary/reports` + `GET /api/summary/reports/{id}` |
 | 14.x | ✅ 完成 2026-04-04：Daily auto-run + 48h lookback filter — 125 tests pass，86% coverage |
+| 15a | ✅ 完成 2026-04-05：BriefingGenerator 自動整合進 DigestNotifier，手動腳本 `generate_briefing.py` |
+| 15b | ✅ 完成 2026-04-05：MCP Server 含 3 個工具，已接入 Claude Code（`✓ Connected`） |
+| 15c | 🚧 規劃中：`add_article` MCP tool（知識庫自我擴充）|
 
 ### 重要的已知修復（非 task 清單內）
 

@@ -1,7 +1,8 @@
 # LLM / Agent 整合規格
 
 > 討論日期：2026-04-04
-> 狀態：規劃中，尚未實作
+> 更新日期：2026-04-05
+> 狀態：Phase 15a ✅ 完成 / Phase 15b ✅ 完成 / Phase 15c 規劃中
 
 ---
 
@@ -13,41 +14,97 @@
 
 ---
 
-## 使用情境
+## 核心目的（2026-04-05 釐清）
 
-### 情境 1：開發輔助（按需查詢）
+系統服務**兩種不同需求**，必須分開設計：
 
-**場景：** 開發新功能時，需要讓 Agent 搜尋最新技術方案。
-
-**範例：**
 ```
-使用者：我要實作 streaming LLM responses，有什麼現成方案？
-Claude：[呼叫 search_ai_news("streaming LLM")]
-      → 取回 5 篇相關近期文章
-      → 整合進技術建議回答
+用途 A：每日 Digest（時效性）
+  → 只需要「最近 48h 的新文章」
+  → digest_sent=False + posted_at >= now-48h
+
+用途 B：知識庫搜尋（完整性）
+  → 需要「DB 裡所有文章，不限時間」
+  → search_ai_news 不加時間限制
 ```
 
-**需求：**
-- Agent 能按需查詢，不需一次載入所有資料
-- 支援關鍵字搜尋（現有）→ 未來支援語意搜尋
-- 接入 Claude Desktop / Claude agent 生態
-
-**最適方案：MCP Server（Phase 15）**
+LLM 手動加入的文章屬於**用途 B**，不進入每日 digest。
 
 ---
 
-### 情境 2：每日技術簡報（定期彙整）
+## 使用情境
 
-**場景：** 每天早上自動生成一份 Markdown 簡報，由 LLM 分析今日 AI 新聞並提供趨勢洞察與開發建議。
+### 情境 1：開發輔助 — LLM 搜尋知識庫（已完成 Phase 15b）
+
+**場景：** 開發新功能時，讓 Agent 搜尋 DB 中所有相關技術（不限時間）。
 
 **流程：**
 ```
-今日 report（已有）→ Groq 分析 → briefings/YYYY-MM-DD.md
+使用者：我要實作 streaming LLM responses，有什麼現成方案？
+Claude：[呼叫 search_ai_news("streaming LLM", days=0)]
+      → 取回 DB 中所有相關文章（不限年份）
+      → 整合進技術建議回答
 ```
+
+**已實作工具（`backend/mcp_server.py`）：**
+```python
+search_ai_news(query: str, days: int = 0, limit: int = 10)
+# days=0 = 不限時間，搜尋全部 DB
+
+get_daily_report(date: str = "today")
+# 取得指定日期彙整報告
+
+get_posts_by_category(category: str, days: int = 7, limit: int = 10)
+# 依分類篩選：ai-agent / ai-model / ai-tool / other
+```
+
+---
+
+### 情境 1b：知識庫自我擴充 — LLM 發現新技術後寫入 DB（Phase 15c）
+
+**場景：** LLM 搜尋時發現 DB 中沒有某篇相關文章，主動將其存入，讓知識庫持續成長。
+
+**流程：**
+```
+Claude：[呼叫 search_ai_news("NotebookLM MCP")]
+      → DB 沒有相關結果
+      → 自行到 Reddit/GitHub 搜尋
+      → 找到 https://reddit.com/r/MachineLearning/comments/...
+      → [呼叫 add_article(url=..., content=..., labels=["ai-tool"])]
+      → 文章存入 DB，下次搜尋就能找到
+```
+
+**設計決策：**
+
+| 欄位 | 值 | 說明 |
+|------|-----|------|
+| `source` | `"llm-research"` | 區分自動爬蟲 vs LLM 手動加入 |
+| `external_id` | `url` | URL 作為唯一識別 |
+| `posted_at` | 文章原始發佈日（LLM 判斷）或今天 | 保留語意正確性 |
+| `digest_sent` | `True` | 歷史文章跳過每日 digest |
+| `is_relevant` | `True` | LLM 已判斷相關性 |
+| `summary_zh` | Groq 自動生成 | 加入時同步產生中文摘要 |
+
+**URL 去重策略：**
+- 加入前先查詢 `url` 是否已存在（不限 source）
+- 若存在回傳「已存在」訊息，不重複寫入
+- 避免 LLM 爬蟲與 HN/Reddit 自動爬蟲出現重複記錄
+
+---
+
+### 情境 2：每日技術簡報（已完成 Phase 15a）
+
+**場景：** 每天早上自動生成一份 Markdown 簡報，由 Groq 分析今日 AI 新聞並提供趨勢洞察與開發建議。
+
+**已實作：**
+- `backend/app/briefing/briefing_generator.py` — BriefingGenerator class
+- 整合進 `DigestNotifier.run()`，每日 digest 後自動執行
+- 輸出至 `briefings/YYYY-MM-DD.md`（不入 Git）
+- 可手動執行：`python scripts/generate_briefing.py`
 
 **輸出格式（範例）：**
 ```markdown
-# AI 技術簡報 — 2026-04-04
+# AI 技術簡報 — 2026-04-05
 
 ## 今日重點趨勢
 1. **Multi-agent 框架成熟化** — AutoGen、KaibanJS 進入穩定版...
@@ -61,82 +118,76 @@ Claude：[呼叫 search_ai_news("streaming LLM")]
 2. 關注 MCP 協議社群生態，與 Claude 整合越來越成熟
 ```
 
-**需求：**
-- 以現有 `GET /api/summary/latest` 取得今日報告
-- 送至 Groq 加上分析 prompt（趨勢識別、開發者洞察、行動建議）
-- 儲存為 `briefings/YYYY-MM-DD.md`（不入 Git）
-- 可手動執行，未來整合進每日排程
-- Email 交付**暫緩**，先產出本地 Markdown 檔案
-
-**最適方案：Briefing Script（Phase 15a，優先）**
-
 ---
 
 ## 架構決策
 
-| 方向 | 說明 | Token 效益 | 優先級 |
-|------|------|-----------|--------|
-| **Compact Context Endpoint** | `GET /api/context` 回傳純 Markdown，無冗餘 JSON 欄位 | 省 70–80% | P1 |
-| **Briefing Script** | 每日 Groq 分析 → `briefings/YYYY-MM-DD.md` | 高價值輸出 | P0（最先做） |
-| **MCP Server** | 包裝現有 API 為 MCP tools，接入 Claude Desktop | 按需取用 | P1 |
-| **語意搜尋** | 向量搜尋，讓查詢更精準 | 精準省 token | P2（未來） |
+| 方向 | 說明 | 狀態 |
+|------|------|------|
+| **Briefing Script** | 每日 Groq 分析 → `briefings/YYYY-MM-DD.md` | ✅ Phase 15a 完成 |
+| **MCP Server** | 包裝現有 API 為 MCP tools，接入 Claude Code/Desktop | ✅ Phase 15b 完成 |
+| **add_article MCP tool** | LLM 發現新技術 → 寫入知識庫 | 🚧 Phase 15c 規劃中 |
+| **語意搜尋** | 向量搜尋，讓查詢更精準 | Phase 16（未來） |
 
-### 現在已可用（無需開發）
+### 兩種文章的生命週期對比
 
-- `GET /api/summary/latest` → 取回 Markdown 報告 → 手動貼給 Claude 分析
-- `GET /api/summary/reports` → 歷史報告列表
-- `/report` 頁面 → 人工瀏覽
+```
+自動爬蟲文章                    LLM 手動加入文章
+─────────────────               ─────────────────────────
+source: hackernews/reddit       source: llm-research
+digest_sent: False              digest_sent: True（跳過 digest）
+posted_at: 原始發佈日           posted_at: 原始發佈日（LLM 判斷）
+↓                               ↓
+進入每日 digest                 直接進知識庫
+↓                               ↓
+search_ai_news 可搜尋           search_ai_news 可搜尋 ✅
+```
 
 ---
 
 ## 實作計畫
 
-### Phase 15a：每日技術簡報 Script（情境 2）
+### Phase 15a：每日技術簡報 ✅ 完成
 
-**檔案：** `backend/scripts/generate_briefing.py`
+- `backend/app/briefing/briefing_generator.py`
+- `backend/scripts/generate_briefing.py`
+- 整合進 `DigestNotifier.run()`
+- `briefings/` 加入 `.gitignore`
 
-**步驟：**
-1. 呼叫本地 API 取得最新報告內容
-2. 組合分析 prompt（繁體中文、趨勢 + 洞察 + 建議）
-3. 送至 Groq LLaMA 3.3 生成簡報
-4. 儲存至 `briefings/YYYY-MM-DD.md`
+### Phase 15b：MCP Server ✅ 完成
 
-**Prompt 結構：**
-```
-你是一位資深 AI 工程師的技術助理。
-以下是今日 AI 新聞彙整，請生成一份開發者技術簡報，包含：
-1. 3–5 個今日重點技術趨勢（各 2–3 句說明）
-2. 對軟體開發者最值得關注的技術或工具
-3. 1–2 個具體行動建議
+- `backend/mcp_server.py`
+- 工具：`search_ai_news`、`get_daily_report`、`get_posts_by_category`
+- 直連 SQLite（無 HTTP 依賴）
+- `os.chdir(backend_dir)` 確保相對 DB 路徑正確
 
-格式：繁體中文 Markdown，不超過 600 字。
+### Phase 15c：`add_article` MCP tool 🚧
 
-今日新聞彙整：
-{report_content}
-```
-
-**輸出位置：** `briefings/YYYY-MM-DD.md`（加入 `.gitignore`）
-
----
-
-### Phase 15b：MCP Server（情境 1）
-
-**工具設計：**
-
+**新增工具：**
 ```python
-search_ai_news(query: str, days: int = 7, limit: int = 5)
-# → 回傳符合 query 的近期文章（精簡 Markdown）
-
-get_daily_report(date: str = "today")
-# → 回傳指定日期彙整報告
-
-get_posts_by_category(category: str, days: int = 7)
-# → 回傳指定分類（ai-agent / ai-model / ai-tool）最新文章
+add_article(
+    url: str,           # 文章 URL（必填，用於去重）
+    content: str,       # 文章內容摘要（必填）
+    labels: list[str],  # ["ai-agent", "ai-model", "ai-tool", "other"]
+    title: str = "",    # 文章標題（選填）
+    posted_at: str = "", # 原始發佈日 YYYY-MM-DD（選填，預設今天）
+    score: float = 7.0, # 相關性分數（選填，預設 7.0）
+)
 ```
 
-**接入方式：** Claude Desktop MCP 設定
+**需改動的元件：**
 
----
+| 元件 | 改動 |
+|------|------|
+| `news_store.py` | 新增 `get_post_by_url(url) -> Post \| None` |
+| `mcp_server.py` | 新增 `add_article` tool |
+| `models.py` | 在 `url` 欄位加 index（加速 URL 查詢） |
+| `alembic` | Migration 005：url index |
+
+**不需改動：**
+- Digest / lookback 邏輯（`digest_sent=True` 已隔離）
+- Dashboard / report 頁面
+- `search_ai_news` tool（已支援全時間搜尋）
 
 ### Phase 16：語意搜尋（未來）
 
@@ -151,6 +202,7 @@ get_posts_by_category(category: str, days: int = 7)
 
 | 情境 | 現況 |
 |------|------|
-| 情境 2（簡報）| 報告已自動生成，Script 尚未實作 |
-| 情境 1（開發輔助）| 需等 MCP Server 完成 |
+| 情境 2（每日簡報）| ✅ 完成：自動生成 `briefings/YYYY-MM-DD.md` |
+| 情境 1（MCP 搜尋）| ✅ 完成：3 個工具已接入 Claude Code |
+| 情境 1b（知識庫擴充）| 🚧 Phase 15c 待實作 |
 | Email 交付 | 暫緩 |
