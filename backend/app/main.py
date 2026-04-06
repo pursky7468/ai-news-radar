@@ -52,50 +52,57 @@ def _catchup_digest() -> None:
         from app.store.news_store import NewsStore
         from app.notifier.digest_notifier import DigestNotifier
 
+        # Use a short-lived session only for the date-discovery query
         db = _SessionLocal()
-        store = NewsStore(session=db)
+        try:
+            store = NewsStore(session=db)
+            missing_dates = _get_missing_report_dates(store, settings.catchup_max_days)
+        finally:
+            db.close()
 
-        missing_dates = _get_missing_report_dates(store, settings.catchup_max_days)
         if not missing_dates:
             logger.info("Startup catch-up: no missing report dates.")
-            db.close()
             return
 
         logger.info("Startup catch-up: found %d missing date(s): %s", len(missing_dates), missing_dates)
-
-        notifier = DigestNotifier(
-            news_store=store,
-            smtp_config=settings.smtp_config,
-            webhook_url=settings.digest_webhook_url,
-            gemini_api_key=settings.gemini_api_key,
-            gemini_model=settings.gemini_model,
-            groq_api_key=settings.groq_api_key,
-            groq_model=settings.groq_model,
-            lookback_hours=settings.digest_lookback_hours,
-            briefings_output_dir=settings.briefings_output_dir or None,
-        )
 
         for missing_date in missing_dates:
             ref_time = datetime(
                 missing_date.year, missing_date.month, missing_date.day,
                 8, 0, 0, tzinfo=timezone.utc,
             )
-            # Check if there are any posts in this day's lookback window
-            window_start = ref_time - timedelta(hours=settings.digest_lookback_hours)
-            posts_available = store.get_unsent_relevant_posts(
-                limit=1, since=window_start
-            )
-            if not posts_available:
-                logger.warning(
-                    "Startup catch-up: skipping %s — no posts in window [%s, %s]",
-                    missing_date, window_start.date(), ref_time.date(),
+            # Each date gets its own fresh session to avoid cross-run session contamination
+            db = _SessionLocal()
+            try:
+                store = NewsStore(session=db)
+                window_start = ref_time - timedelta(hours=settings.digest_lookback_hours)
+                posts_available = store.get_unsent_relevant_posts(limit=1, since=window_start)
+                if not posts_available:
+                    logger.warning(
+                        "Startup catch-up: skipping %s — no posts in window [%s, %s]",
+                        missing_date, window_start.date(), ref_time.date(),
+                    )
+                    continue
+
+                logger.info("Startup catch-up: running digest for %s (ref_time=%s)", missing_date, ref_time)
+                notifier = DigestNotifier(
+                    news_store=store,
+                    smtp_config=settings.smtp_config,
+                    webhook_url=settings.digest_webhook_url,
+                    gemini_api_key=settings.gemini_api_key,
+                    gemini_model=settings.gemini_model,
+                    groq_api_key=settings.groq_api_key,
+                    groq_model=settings.groq_model,
+                    lookback_hours=settings.digest_lookback_hours,
+                    briefings_output_dir=settings.briefings_output_dir or None,
                 )
-                continue
+                notifier.run(reference_time=ref_time)
+            except Exception as exc:
+                logger.error("Startup catch-up: failed for %s: %s", missing_date, exc)
+                db.rollback()
+            finally:
+                db.close()
 
-            logger.info("Startup catch-up: running digest for %s (ref_time=%s)", missing_date, ref_time)
-            notifier.run(reference_time=ref_time)
-
-        db.close()
     except Exception as exc:
         logger.error("Startup catch-up digest failed: %s", exc)
 
