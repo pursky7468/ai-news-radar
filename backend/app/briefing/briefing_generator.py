@@ -56,6 +56,9 @@ class BriefingGenerator:
 
         self._output_dir.mkdir(parents=True, exist_ok=True)
         out_path = self._output_dir / f"{date_str}.md"
+        if out_path.exists():
+            logger.info("Briefing already exists, skipping → %s", out_path)
+            return out_path
         out_path.write_text(briefing, encoding="utf-8")
         logger.info("Briefing saved → %s", out_path)
         return out_path

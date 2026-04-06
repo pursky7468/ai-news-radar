@@ -417,7 +417,7 @@
 | 15a | ✅ 完成 2026-04-05：BriefingGenerator 自動整合進 DigestNotifier，手動腳本 `generate_briefing.py` |
 | 15b | ✅ 完成 2026-04-05：MCP Server 含 3 個工具，已接入 Claude Code（`✓ Connected`） |
 | 15c | 🚧 規劃中：`add_article` MCP tool（知識庫自我擴充）|
-| 16 | ✅ 完成 2026-04-06：Multi-day catch-up — 133 tests pass，85% coverage；修復 stop-at-first-existing bug |
+| 16 | ✅ 完成 2026-04-06：Multi-day catch-up — 133 tests pass，85% coverage；修復 stop-at-first-existing bug 與補跑 briefing 日期 bug |
 
 ### 重要的已知修復（非 task 清單內）
 

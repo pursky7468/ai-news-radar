@@ -56,7 +56,7 @@ class DigestNotifier:
 
         # Generate developer briefing from the digest report
         if report_markdown and self._groq_api_key and self._briefings_output_dir:
-            self._run_briefing(report_markdown)
+            self._run_briefing(report_markdown, reference_time=reference_time)
 
         email_ok = self.send_email(posts, report_markdown) if self._smtp else False
         webhook_ok = self.send_webhook(posts, report_markdown) if self._webhook_url else False
@@ -114,7 +114,7 @@ class DigestNotifier:
             logger.error("Summarization pipeline failed: %s", exc)
             return None
 
-    def _run_briefing(self, report_markdown: str) -> None:
+    def _run_briefing(self, report_markdown: str, reference_time: Optional[datetime] = None) -> None:
         """Generate and save a developer briefing Markdown file."""
         try:
             from app.briefing.briefing_generator import BriefingGenerator
@@ -123,7 +123,7 @@ class DigestNotifier:
                 groq_model=self._groq_model,
                 output_dir=self._briefings_output_dir,
             )
-            gen.generate(report_markdown)
+            gen.generate(report_markdown, date=reference_time)
         except Exception as exc:
             logger.error("Briefing generation failed: %s", exc)
 
