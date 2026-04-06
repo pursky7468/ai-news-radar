@@ -112,6 +112,11 @@ class DigestNotifier:
             return report_content or None
         except Exception as exc:
             logger.error("Summarization pipeline failed: %s", exc)
+            # Reset session so subsequent operations (mark_digest_sent, commit) can proceed
+            try:
+                self._store.rollback()
+            except Exception:
+                pass
             return None
 
     def _run_briefing(self, report_markdown: str, reference_time: Optional[datetime] = None) -> None:

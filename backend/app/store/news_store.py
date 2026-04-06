@@ -90,6 +90,10 @@ class NewsStore:
         )
         self._session.flush()
 
+    def rollback(self) -> None:
+        """Roll back the current transaction, resetting any pending error state."""
+        self._session.rollback()
+
     def commit(self) -> None:
         """Commit the current session transaction."""
         self._session.commit()

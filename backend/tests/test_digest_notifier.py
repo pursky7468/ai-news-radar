@@ -3,6 +3,8 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
+from sqlalchemy import text
+from sqlalchemy.exc import OperationalError
 
 from app.notifier.digest_notifier import DigestNotifier
 
@@ -294,6 +296,70 @@ def test_run_with_reference_time_uses_correct_window(news_store):
     ids = [p.external_id for p in posts]
     assert "in_window" in ids
     assert "out_of_window" not in ids
+
+
+# ---------------------------------------------------------------------------
+# Regression: PendingRollbackError — summarize_batch DB failure must not
+# prevent mark_digest_sent from succeeding.
+# ---------------------------------------------------------------------------
+
+def test_run_marks_sent_despite_db_error_in_summarize_batch():
+    """Regression: DB error in summarize_batch must not poison mark_digest_sent.
+
+    Reproduces the 8 AM cron crash: update_post_summary causes a real
+    SQLAlchemy session-level error; without rollback the session enters
+    PendingRollbackError state and mark_digest_sent raises.
+
+    Uses a standalone in-memory DB (not the shared transactional fixture)
+    so that calling session.rollback() in the fix code does not undo test
+    setup data.
+    """
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session as OrmSession
+    from app.models import Base
+    from app.store.news_store import NewsStore as _NS
+
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    Base.metadata.create_all(engine)
+    db = OrmSession(engine)
+    store = _NS(session=db)
+
+    _insert_relevant_post(store, "reg_pending_rollback")
+    db.commit()
+
+    notifier = DigestNotifier(
+        news_store=store,
+        smtp_config=None,
+        webhook_url=None,
+        groq_api_key="fake-key",
+    )
+
+    def corrupt_session_then_raise(post_id, summary_zh):
+        # Execute invalid SQL against the real session to trigger a DB-level
+        # error, then swallow it WITHOUT rolling back — exactly what the bug
+        # scenario looked like before the fix.
+        try:
+            store._session.execute(text("INSERT INTO nonexistent_table VALUES (1)"))
+        except Exception:
+            pass  # session is now in PendingRollback state — not rolled back here
+        raise OperationalError("stmt", {}, Exception("db error"))
+
+    with patch.object(store, "update_post_summary", side_effect=corrupt_session_then_raise), \
+         patch("app.summarizer.groq_client.GroqClient") as mock_cls, \
+         patch("app.summarizer.summary_generator.time") as mock_time:
+        mock_client = MagicMock()
+        mock_client.summarize_post.return_value = "AI 摘要"
+        mock_cls.return_value = mock_client
+        mock_time.sleep = MagicMock()  # skip 4-second rate-limit delay
+
+        result = notifier.run()
+
+    remaining = store.get_unsent_relevant_posts()
+    db.close()
+    engine.dispose()
+
+    assert len(remaining) == 0, "posts must be marked sent even after summarization DB error"
+    assert result["posts_included"] == 1
 
 
 def test_run_summarization_uses_reference_time_as_date_string(news_store):

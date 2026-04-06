@@ -55,6 +55,12 @@ class SummaryGenerator:
             except Exception as exc:
                 logger.warning("Failed to summarize post %s: %s", post.id, exc)
                 consecutive_failures += 1
+                # If the store flush failed, the session may be in PendingRollback state.
+                # Roll back to let the session continue processing remaining posts.
+                try:
+                    self._store.rollback()
+                except Exception:
+                    pass
             time.sleep(_RATE_LIMIT_SLEEP)
 
     def assemble_report(self, posts: list, date: str | None = None) -> str:
