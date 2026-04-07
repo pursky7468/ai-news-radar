@@ -173,6 +173,14 @@ class NewsStore:
             q = q.filter(Post.posted_at >= since)
         return q.order_by(Post.relevance_score.desc().nullslast()).limit(limit).all()
 
+    def get_post_by_url(self, url: str) -> Optional[Post]:
+        """Return the first Post matching the given URL, or None."""
+        return (
+            self._session.query(Post)
+            .filter(Post.url == url)
+            .first()
+        )
+
     def get_post_by_id(self, post_id: int) -> Optional[Post]:
         return self._session.get(Post, post_id)
 

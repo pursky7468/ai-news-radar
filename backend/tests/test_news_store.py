@@ -193,3 +193,19 @@ def test_get_post_by_id_found(news_store: NewsStore):
 def test_get_post_by_id_not_found(news_store: NewsStore):
     result = news_store.get_post_by_id(9999)
     assert result is None
+
+
+# ---------------------------------------------------------------------------
+# Lookup by URL (Phase 15c)
+# ---------------------------------------------------------------------------
+
+def test_get_post_by_url_found(news_store: NewsStore):
+    news_store.upsert_post(make_post(url="https://example.com/article/1"))
+    result = news_store.get_post_by_url("https://example.com/article/1")
+    assert result is not None
+    assert result.url == "https://example.com/article/1"
+
+
+def test_get_post_by_url_not_found(news_store: NewsStore):
+    result = news_store.get_post_by_url("https://example.com/nonexistent")
+    assert result is None

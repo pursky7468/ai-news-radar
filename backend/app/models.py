@@ -47,6 +47,7 @@ class Post(Base):
         Index("ix_posts_relevance_score", "relevance_score"),
         Index("ix_posts_is_relevant", "is_relevant"),
         Index("ix_posts_source", "source"),
+        Index("ix_posts_url", "url"),
     )
 
 

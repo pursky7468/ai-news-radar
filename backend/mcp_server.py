@@ -203,5 +203,110 @@ def get_posts_by_category(category: str, days: int = 7, limit: int = 10) -> str:
     return "\n".join(lines)
 
 
+@mcp.tool()
+def add_article(
+    url: str,
+    content: str,
+    labels: list[str],
+    title: str = "",
+    posted_at: str = "",
+    score: float = 7.0,
+) -> str:
+    """
+    Add an external article to the knowledge base (LLM-discovered content).
+
+    The article is stored with digest_sent=True so it never appears in the
+    daily digest, but is fully searchable via search_ai_news.
+
+    Args:
+        url:       Article URL (required; used for deduplication).
+        content:   Article body / abstract (required).
+        labels:    Category labels list, e.g. ["ai-tool", "ai-agent"].
+        title:     Optional article title (prepended to content if provided).
+        posted_at: Original publish date YYYY-MM-DD (optional; defaults to today).
+        score:     Relevance score 0–10 (default 7.0).
+
+    Returns:
+        Markdown confirmation message including the generated zh-TW summary.
+    """
+    valid_labels = {"ai-agent", "ai-model", "ai-tool", "other"}
+    invalid = [lb for lb in labels if lb not in valid_labels]
+    if invalid:
+        return (
+            f"Invalid labels: {invalid}. "
+            f"Valid options: {', '.join(sorted(valid_labels))}"
+        )
+
+    store = _store()
+
+    # Dedup by URL
+    existing = store.get_post_by_url(url)
+    if existing:
+        return (
+            f"⚠️ **Article already exists** (id={existing.id}, source={existing.source})\n\n"
+            f"URL: {url}"
+        )
+
+    # Parse posted_at
+    if posted_at:
+        try:
+            post_date = datetime.strptime(posted_at, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        except ValueError:
+            return f"Invalid posted_at format: '{posted_at}'. Use YYYY-MM-DD."
+    else:
+        post_date = datetime.now(timezone.utc)
+
+    # Build full content
+    full_content = f"{title}\n{content}".strip() if title else content
+
+    # Generate zh-TW summary if Groq is available
+    summary_zh: str | None = None
+    if settings.groq_api_key:
+        try:
+            from app.summarizer.groq_client import GroqClient
+
+            class _FakePost:
+                def __init__(self, src, cnt):
+                    self.source = src
+                    self.content = cnt
+
+            client = GroqClient(api_key=settings.groq_api_key, model=settings.groq_model)
+            summary_zh = client.summarize_post(_FakePost("llm-research", full_content[:500]))
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).warning("add_article: Groq summary failed: %s", exc)
+
+    store.upsert_post({
+        "source": "llm-research",
+        "external_id": url,
+        "author_handle": "llm-agent",
+        "content": full_content[:2000],
+        "url": url,
+        "posted_at": post_date,
+        "relevance_score": score,
+        "is_relevant": True,
+        "labels": labels,
+        "digest_sent": True,
+        "summary_zh": summary_zh,
+    })
+    # update summary_zh separately if not stored via upsert_post
+    if summary_zh:
+        post = store.get_post_by_url(url)
+        if post and not post.summary_zh:
+            store.update_post_summary(post.id, summary_zh)
+    store.commit()
+
+    summary_display = summary_zh or "(Groq not configured — no summary generated)"
+    return (
+        f"✅ **Article added to knowledge base**\n\n"
+        f"- **URL**: {url}\n"
+        f"- **Labels**: {', '.join(labels)}\n"
+        f"- **Score**: {score}\n"
+        f"- **Date**: {post_date.strftime('%Y-%m-%d')}\n"
+        f"- **Summary (zh-TW)**: {summary_display}\n\n"
+        f"Use `search_ai_news` to retrieve this article."
+    )
+
+
 if __name__ == "__main__":
     mcp.run()
