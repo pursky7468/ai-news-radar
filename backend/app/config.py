@@ -76,6 +76,19 @@ class Settings(BaseSettings):
     # Personalization
     user_context: str = ""
 
+    # Highlight scorer weights (JSON string or individual env vars)
+    highlight_weight_relevance: float = 0.5
+    highlight_weight_source: float = 0.3
+    highlight_weight_recency: float = 0.2
+
+    @property
+    def highlight_weights(self) -> dict:
+        return {
+            "relevance": self.highlight_weight_relevance,
+            "source": self.highlight_weight_source,
+            "recency": self.highlight_weight_recency,
+        }
+
     @property
     def FEATURES(self) -> dict:
         return {

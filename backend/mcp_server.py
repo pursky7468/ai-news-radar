@@ -334,5 +334,109 @@ def add_article(
     )
 
 
+@mcp.tool()
+def get_trending_tools(days: int = 7, limit: int = 10) -> str:
+    """
+    Get the most frequently mentioned AI tools in recent articles.
+
+    Tool names are matched against the known_tools.txt keyword list.
+
+    Args:
+        days:  Look back N days (default 7). Use 0 for all time.
+        limit: Maximum number of tools to return (default 10).
+
+    Returns:
+        Ranked list of tools with mention count and a sample article URL.
+    """
+    known_tools_path = _BACKEND_DIR / "known_tools.txt"
+    if not known_tools_path.exists():
+        return "known_tools.txt not found. Cannot compute trending tools."
+
+    known_tools = []
+    for line in known_tools_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line and not line.startswith("#"):
+            known_tools.append(line)
+
+    if not known_tools:
+        return "known_tools.txt is empty."
+
+    since = None
+    if days > 0:
+        since = datetime.now(timezone.utc) - timedelta(days=days)
+
+    store = _store()
+    posts = store.query_posts(
+        since=since,
+        is_relevant=True,
+        sort="date_desc",
+        per_page=500,
+    )
+
+    if not posts:
+        period = f"last {days} days" if days > 0 else "all time"
+        return f"No posts found ({period})."
+
+    # Count tool mentions
+    from collections import defaultdict
+    counts: dict[str, list] = defaultdict(list)  # tool -> [url, ...]
+
+    for p in posts:
+        text = ((p.content or "") + " " + (p.summary_zh or "")).lower()
+        for tool in known_tools:
+            if tool.lower() in text:
+                counts[tool].append(p.url)
+
+    if not counts:
+        return "No known tools mentioned in recent articles."
+
+    sorted_tools = sorted(counts.items(), key=lambda x: len(x[1]), reverse=True)[:limit]
+    period_str = f"last {days} days" if days > 0 else "all time"
+    lines = [f"## 🔧 Trending AI Tools ({period_str})\n"]
+    for tool, urls in sorted_tools:
+        sample_url = urls[0]
+        lines.append(f"- **{tool}** — {len(urls)} mention(s)  [sample]({sample_url})")
+
+    return "\n".join(lines)
+
+
+@mcp.tool()
+def get_weekly_summary(week_offset: int = 0) -> str:
+    """
+    Get the weekly AI trend briefing for a given week.
+
+    Args:
+        week_offset: 0 = current week (default), -1 = last week, etc.
+
+    Returns:
+        Full Markdown content of the weekly briefing, or a message if not found.
+    """
+    from datetime import date, timedelta
+
+    today = date.today()
+    # Calculate target ISO week
+    target_date = today + timedelta(weeks=week_offset)
+    iso_year, iso_week, _ = target_date.isocalendar()
+    filename = f"{iso_year}-W{iso_week:02d}.md"
+
+    # Try common locations
+    candidates = [
+        _BACKEND_DIR / "briefings" / "weekly" / filename,
+        _BACKEND_DIR.parent / "briefings" / "weekly" / filename,
+    ]
+    if settings.briefings_output_dir:
+        candidates.insert(0, Path(settings.briefings_output_dir) / "weekly" / filename)
+
+    for path in candidates:
+        if path.exists():
+            content = path.read_text(encoding="utf-8")
+            return content or f"Weekly briefing for {iso_year}-W{iso_week:02d} is empty."
+
+    return (
+        f"週報尚未生成（{iso_year} 第 {iso_week} 週）。"
+        f"請執行 generate_weekly_briefing.py 或等待本週一排程執行。"
+    )
+
+
 if __name__ == "__main__":
     mcp.run()

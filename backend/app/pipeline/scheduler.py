@@ -21,6 +21,7 @@ def build_scheduler(
     digest_cron: str,
     fetch_job_fn,
     digest_job_fn,
+    weekly_briefing_job_fn=None,
 ) -> BackgroundScheduler:
     sched = BackgroundScheduler()
     sched.add_job(
@@ -37,6 +38,14 @@ def build_scheduler(
         name="Digest notifier",
         replace_existing=True,
     )
+    if weekly_briefing_job_fn is not None:
+        sched.add_job(
+            weekly_briefing_job_fn,
+            trigger=CronTrigger(day_of_week="mon", hour=8, minute=0),
+            id="weekly_briefing_job",
+            name="Weekly briefing generator",
+            replace_existing=True,
+        )
     return sched
 
 
@@ -123,8 +132,37 @@ def _make_digest_job(settings, session_factory) -> callable:
                 groq_model=settings.groq_model,
                 lookback_hours=settings.digest_lookback_hours,
                 briefings_output_dir=settings.briefings_output_dir or None,
+                user_context=settings.user_context,
+                highlight_scorer_enabled=settings.FEATURES.get("highlight_scorer", False),
             )
             notifier.run()
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
+
+    return run
+
+
+def _make_weekly_briefing_job(settings, session_factory) -> callable:
+    """Return a callable for the weekly briefing job."""
+    from app.briefing.weekly_briefing_generator import WeeklyBriefingGenerator
+    from app.store.news_store import NewsStore
+
+    def run():
+        from datetime import datetime, timedelta, timezone
+        db = session_factory()
+        try:
+            store = NewsStore(session=db)
+            since = datetime.now(timezone.utc) - timedelta(days=7)
+            posts = store.query_posts(is_relevant=True, since=since, per_page=200, sort="score_desc")
+            generator = WeeklyBriefingGenerator(
+                groq_api_key=settings.groq_api_key,
+                groq_model=settings.groq_model,
+                output_dir=settings.briefings_output_dir + "/weekly" if settings.briefings_output_dir else "briefings/weekly",
+            )
+            generator.generate(posts)
         except Exception:
             db.rollback()
             raise
@@ -142,11 +180,16 @@ def start_scheduler() -> None:
     fetch_job = _make_fetch_job(settings, _SessionLocal)
     digest_job = _make_digest_job(settings, _SessionLocal)
 
+    weekly_job = None
+    if settings.FEATURES.get("weekly_briefing"):
+        weekly_job = _make_weekly_briefing_job(settings, _SessionLocal)
+
     _scheduler = build_scheduler(
         fetch_interval_minutes=settings.fetch_interval_minutes,
         digest_cron=settings.digest_cron,
         fetch_job_fn=fetch_job,
         digest_job_fn=digest_job,
+        weekly_briefing_job_fn=weekly_job,
     )
     _scheduler.start()
     logger.info("Scheduler started (fetch every %dmin, digest: %s)", settings.fetch_interval_minutes, settings.digest_cron)

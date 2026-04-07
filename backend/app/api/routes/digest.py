@@ -24,6 +24,8 @@ def trigger_digest(db: Session = Depends(get_db)):
         groq_model=settings.groq_model,
         lookback_hours=settings.digest_lookback_hours,
         briefings_output_dir=settings.briefings_output_dir or None,
+        user_context=settings.user_context,
+        highlight_scorer_enabled=settings.FEATURES.get("highlight_scorer", False),
     )
     summary = notifier.run()
     return DigestTriggerResult(**summary)

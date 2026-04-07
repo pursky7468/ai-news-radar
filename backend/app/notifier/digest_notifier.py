@@ -28,6 +28,9 @@ class DigestNotifier:
         groq_model: str = "llama-3.3-70b-versatile",
         lookback_hours: int = 48,
         briefings_output_dir: Optional[str] = None,
+        user_context: str = "",
+        highlight_scorer_enabled: bool = False,
+        highlight_weights: Optional[dict] = None,
     ) -> None:
         self._store = news_store
         self._smtp = smtp_config
@@ -39,6 +42,9 @@ class DigestNotifier:
         self._groq_model = groq_model
         self._lookback_hours = lookback_hours
         self._briefings_output_dir = briefings_output_dir
+        self._user_context = user_context
+        self._highlight_scorer_enabled = highlight_scorer_enabled
+        self._highlight_weights = highlight_weights
 
     # ------------------------------------------------------------------
     # Orchestration
@@ -56,7 +62,7 @@ class DigestNotifier:
 
         # Generate developer briefing from the digest report
         if report_markdown and self._groq_api_key and self._briefings_output_dir:
-            self._run_briefing(report_markdown, reference_time=reference_time)
+            self._run_briefing(report_markdown, reference_time=reference_time, posts=posts)
 
         email_ok = self.send_email(posts, report_markdown) if self._smtp else False
         webhook_ok = self.send_webhook(posts, report_markdown) if self._webhook_url else False
@@ -119,14 +125,30 @@ class DigestNotifier:
                 pass
             return None
 
-    def _run_briefing(self, report_markdown: str, reference_time: Optional[datetime] = None) -> None:
+    def _run_briefing(
+        self,
+        report_markdown: str,
+        reference_time: Optional[datetime] = None,
+        posts=None,
+    ) -> None:
         """Generate and save a developer briefing Markdown file."""
         try:
             from app.briefing.briefing_generator import BriefingGenerator
+
+            highlight_posts = None
+            if self._highlight_scorer_enabled and posts:
+                from app.briefing.highlight_scorer import get_top_highlights
+                highlight_posts = get_top_highlights(
+                    posts, n=3, reference_time=reference_time, weights=self._highlight_weights
+                )
+
             gen = BriefingGenerator(
                 groq_api_key=self._groq_api_key,
                 groq_model=self._groq_model,
                 output_dir=self._briefings_output_dir,
+                user_context=self._user_context,
+                highlight_posts=highlight_posts,
+                highlight_weights=self._highlight_weights,
             )
             gen.generate(report_markdown, date=reference_time)
         except Exception as exc:

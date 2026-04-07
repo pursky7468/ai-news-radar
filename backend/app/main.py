@@ -95,6 +95,8 @@ def _catchup_digest() -> None:
                     groq_model=settings.groq_model,
                     lookback_hours=settings.digest_lookback_hours,
                     briefings_output_dir=settings.briefings_output_dir or None,
+                    user_context=settings.user_context,
+                    highlight_scorer_enabled=settings.FEATURES.get("highlight_scorer", False),
                 )
                 notifier.run(reference_time=ref_time)
             except Exception as exc:

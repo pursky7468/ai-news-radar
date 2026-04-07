@@ -14,10 +14,12 @@ _BRIEFING_PROMPT = """\
 2. 對軟體開發者最值得關注的技術或工具
 3. 1–2 個具體行動建議
 
-格式：繁體中文 Markdown，不超過 600 字。
+格式：繁體中文 Markdown，不超過 600 字。{user_context_section}
 
 今日新聞彙整：
 {report_content}"""
+
+_USER_CONTEXT_TEMPLATE = "\n\n使用者當前工作 context：{user_context}"
 
 
 class BriefingGenerator:
@@ -28,10 +30,16 @@ class BriefingGenerator:
         groq_api_key: str,
         groq_model: str = "llama-3.3-70b-versatile",
         output_dir: str | Path = "briefings",
+        user_context: str = "",
+        highlight_posts=None,
+        highlight_weights: dict | None = None,
     ) -> None:
         self._groq_api_key = groq_api_key
         self._groq_model = groq_model
         self._output_dir = Path(output_dir)
+        self._user_context = user_context
+        self._highlight_posts = highlight_posts  # list[Post] or None
+        self._highlight_weights = highlight_weights
 
     def generate(self, report_content: str, date: datetime | None = None) -> Path | None:
         """
@@ -54,6 +62,19 @@ class BriefingGenerator:
             logger.error("BriefingGenerator: Groq call failed: %s", exc)
             return None
 
+        # Prepend highlight section if provided
+        if self._highlight_posts:
+            try:
+                from app.briefing.highlight_scorer import format_highlight_section
+                highlight_md = format_highlight_section(
+                    self._highlight_posts,
+                    reference_time=date,
+                    weights=self._highlight_weights,
+                )
+                briefing = highlight_md + briefing
+            except Exception as exc:
+                logger.warning("BriefingGenerator: highlight section failed: %s", exc)
+
         self._output_dir.mkdir(parents=True, exist_ok=True)
         out_path = self._output_dir / f"{date_str}.md"
         if out_path.exists():
@@ -66,8 +87,15 @@ class BriefingGenerator:
     def _call_groq(self, report_content: str) -> str:
         from groq import Groq
 
+        user_ctx = ""
+        if self._user_context:
+            user_ctx = _USER_CONTEXT_TEMPLATE.format(user_context=self._user_context)
+
         client = Groq(api_key=self._groq_api_key)
-        prompt = _BRIEFING_PROMPT.format(report_content=report_content)
+        prompt = _BRIEFING_PROMPT.format(
+            report_content=report_content,
+            user_context_section=user_ctx,
+        )
         resp = client.chat.completions.create(
             model=self._groq_model,
             messages=[{"role": "user", "content": prompt}],
