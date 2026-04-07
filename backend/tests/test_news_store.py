@@ -241,3 +241,79 @@ def test_query_date_from_and_date_to_combined(news_store: NewsStore):
     results = news_store.query_posts(date_from=date(2026, 3, 10), date_to=date(2026, 3, 20))
     assert len(results) == 1
     assert results[0].external_id == "p2"
+
+
+# ---------------------------------------------------------------------------
+# Bookmarks (Phase 19)
+# ---------------------------------------------------------------------------
+
+def test_add_bookmark_creates_record(news_store: NewsStore):
+    news_store.upsert_post(make_post(external_id="bk1"))
+    post = news_store.query_posts()[0]
+    bm = news_store.add_bookmark(article_id=post.id, note="interesting")
+    assert bm.id is not None
+    assert bm.article_id == post.id
+    assert bm.note == "interesting"
+
+
+def test_add_bookmark_without_note(news_store: NewsStore):
+    news_store.upsert_post(make_post(external_id="bk2"))
+    post = news_store.query_posts()[0]
+    bm = news_store.add_bookmark(article_id=post.id)
+    assert bm.note is None
+
+
+def test_add_bookmark_article_not_found(news_store: NewsStore):
+    import pytest
+    with pytest.raises(ValueError, match="not found"):
+        news_store.add_bookmark(article_id=9999)
+
+
+def test_add_bookmark_duplicate_raises(news_store: NewsStore):
+    import pytest
+    news_store.upsert_post(make_post(external_id="bk3"))
+    post = news_store.query_posts()[0]
+    news_store.add_bookmark(article_id=post.id)
+    with pytest.raises(LookupError, match="already bookmarked"):
+        news_store.add_bookmark(article_id=post.id)
+
+
+def test_get_bookmarks_returns_all(news_store: NewsStore):
+    news_store.upsert_post(make_post(external_id="bk4"))
+    news_store.upsert_post(make_post(external_id="bk5"))
+    posts = news_store.query_posts()
+    news_store.add_bookmark(article_id=posts[0].id)
+    news_store.add_bookmark(article_id=posts[1].id)
+    bms = news_store.get_bookmarks()
+    assert len(bms) == 2
+
+
+def test_get_bookmarks_filters_by_note(news_store: NewsStore):
+    news_store.upsert_post(make_post(external_id="bk6", content="vector database article"))
+    news_store.upsert_post(make_post(external_id="bk7", content="unrelated article"))
+    posts = news_store.query_posts(sort="date_desc")
+    news_store.add_bookmark(article_id=posts[0].id, note="RAG reference")
+    news_store.add_bookmark(article_id=posts[1].id, note="other note")
+    results = news_store.get_bookmarks(q="RAG")
+    assert len(results) == 1
+    assert results[0].note == "RAG reference"
+
+
+def test_delete_bookmark_returns_true(news_store: NewsStore):
+    news_store.upsert_post(make_post(external_id="bk8"))
+    post = news_store.query_posts()[0]
+    bm = news_store.add_bookmark(article_id=post.id)
+    assert news_store.delete_bookmark(bm.id) is True
+    assert news_store.get_bookmarks() == []
+
+
+def test_delete_bookmark_not_found_returns_false(news_store: NewsStore):
+    assert news_store.delete_bookmark(9999) is False
+
+
+def test_delete_bookmark_does_not_delete_article(news_store: NewsStore):
+    news_store.upsert_post(make_post(external_id="bk9"))
+    post = news_store.query_posts()[0]
+    bm = news_store.add_bookmark(article_id=post.id)
+    news_store.delete_bookmark(bm.id)
+    assert news_store.get_post_by_id(post.id) is not None

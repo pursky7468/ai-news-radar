@@ -69,3 +69,18 @@ class HealthResponse(BaseModel):
     status: str  # "ok" | "degraded"
     db: str  # "connected" | "disconnected"
     last_fetch_at: Optional[datetime] = None
+
+
+class BookmarkCreate(BaseModel):
+    article_id: int
+    note: Optional[str] = None
+
+
+class BookmarkResponse(BaseModel):
+    id: int
+    article_id: int
+    note: Optional[str] = None
+    created_at: datetime
+    article: Optional[Post] = None
+
+    model_config = {"from_attributes": True}

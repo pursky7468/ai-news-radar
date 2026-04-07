@@ -6,7 +6,7 @@ import sqlalchemy as sa
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
-from app.models import Post, Report, SystemState
+from app.models import Bookmark, Post, Report, SystemState
 
 _LAST_FETCH_KEY = "last_fetch_at"
 
@@ -243,6 +243,54 @@ class NewsStore:
         if row is None or row.value is None:
             return None
         return datetime.fromisoformat(row.value)
+
+    # ------------------------------------------------------------------
+    # Bookmarks (Phase 19)
+    # ------------------------------------------------------------------
+
+    def add_bookmark(self, article_id: int, note: str = "") -> Bookmark:
+        """Create a bookmark for *article_id*. Raises ValueError if article not found."""
+        post = self.get_post_by_id(article_id)
+        if post is None:
+            raise ValueError(f"Article {article_id} not found")
+        # Check for duplicate
+        existing = (
+            self._session.query(Bookmark)
+            .filter(Bookmark.article_id == article_id)
+            .first()
+        )
+        if existing:
+            raise LookupError(f"Article {article_id} already bookmarked")
+        bm = Bookmark(
+            article_id=article_id,
+            note=note or None,
+            created_at=datetime.now(timezone.utc),
+        )
+        self._session.add(bm)
+        self._session.flush()
+        return bm
+
+    def get_bookmarks(self, q: Optional[str] = None) -> list[Bookmark]:
+        """Return bookmarks ordered by created_at desc, optionally filtered by keyword."""
+        query = self._session.query(Bookmark).join(Bookmark.post)
+        if q:
+            like = f"%{q}%"
+            query = query.filter(
+                sa.or_(
+                    Post.content.ilike(like),
+                    Bookmark.note.ilike(like),
+                )
+            )
+        return query.order_by(Bookmark.created_at.desc()).all()
+
+    def delete_bookmark(self, bookmark_id: int) -> bool:
+        """Delete bookmark by ID. Returns True if deleted, False if not found."""
+        bm = self._session.get(Bookmark, bookmark_id)
+        if bm is None:
+            return False
+        self._session.delete(bm)
+        self._session.flush()
+        return True
 
     def check_db_alive(self) -> bool:
         """Return True if the database is reachable."""

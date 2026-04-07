@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import digest, health, news, summary
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,6 @@ def _get_missing_report_dates(store, max_days: int) -> List[date]:
 def _catchup_digest() -> None:
     """On startup, backfill any missing daily reports up to CATCHUP_MAX_DAYS days."""
     try:
-        from app.config import settings
         from app.api.deps import _SessionLocal
         from app.store.news_store import NewsStore
         from app.notifier.digest_notifier import DigestNotifier
@@ -131,3 +131,7 @@ app.include_router(health.router)
 app.include_router(news.router)
 app.include_router(digest.router)
 app.include_router(summary.router)
+
+if settings.FEATURES.get("bookmarks"):
+    from app.api.routes import bookmarks
+    app.include_router(bookmarks.router)

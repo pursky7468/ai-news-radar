@@ -5,13 +5,14 @@ from sqlalchemy import (
     Column,
     DateTime,
     Float,
+    ForeignKey,
     Integer,
     String,
     Text,
     UniqueConstraint,
     Index,
 )
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase, relationship
 from sqlalchemy.types import JSON
 
 
@@ -41,6 +42,8 @@ class Post(Base):
     digest_sent = Column(Boolean, nullable=False, default=False)
     summary_zh = Column(Text, nullable=True)
 
+    bookmarks = relationship("Bookmark", back_populates="post", cascade="all, delete-orphan")
+
     __table_args__ = (
         UniqueConstraint("source", "external_id", name="uq_posts_source_external_id"),
         Index("ix_posts_posted_at", "posted_at"),
@@ -63,6 +66,25 @@ class Report(Base):
     content = Column(Text, nullable=False)       # Markdown zh-TW report
     post_count = Column(Integer, nullable=False)
     model_used = Column(String, nullable=False)
+
+
+class Bookmark(Base):
+    __tablename__ = "bookmarks"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    article_id = Column(Integer, ForeignKey("posts.id", ondelete="CASCADE"), nullable=False)
+    note = Column(Text, nullable=True)
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    post = relationship("Post", back_populates="bookmarks")
+
+    __table_args__ = (
+        Index("ix_bookmarks_article_id", "article_id"),
+    )
 
 
 class SystemState(Base):

@@ -382,3 +382,131 @@ def test_report_by_id_found(client, auth_headers, db_session):
 def test_report_by_id_not_found(client, auth_headers):
     resp = client.get("/api/summary/reports/9999", headers=auth_headers)
     assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Bookmarks API (Phase 19) — router registered only when feature flag is on
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def bookmark_client(db_session):
+    """TestClient with bookmarks feature flag enabled."""
+    import app.api.deps as deps_module
+    from app.main import app
+    from app.store.news_store import NewsStore
+
+    store = NewsStore(session=db_session)
+
+    def _get_db_override():
+        yield db_session
+
+    def _get_store_override(db=None):
+        return store
+
+    app.dependency_overrides[deps_module.get_db] = _get_db_override
+    app.dependency_overrides[deps_module.get_news_store] = _get_store_override
+
+    # Temporarily register bookmark router
+    from app.api.routes import bookmarks as bm_router
+    app.include_router(bm_router.router)
+
+    with patch("app.pipeline.scheduler.start_scheduler"), \
+         patch("app.pipeline.scheduler.stop_scheduler"):
+        with TestClient(app, raise_server_exceptions=True) as c:
+            yield c
+
+    app.dependency_overrides.clear()
+    # Remove bookmark routes added for test (FastAPI doesn't support unregistering,
+    # so we just clear dependency overrides)
+
+
+def _insert_post_for_bookmark(db_session, external_id="bm_post"):
+    from datetime import timezone
+    from app.store.news_store import NewsStore
+    store = NewsStore(session=db_session)
+    store.upsert_post({
+        "source": "hackernews",
+        "external_id": external_id,
+        "author_handle": "tester",
+        "content": "Article for bookmark test",
+        "url": f"https://example.com/{external_id}",
+        "posted_at": datetime(2026, 4, 1, tzinfo=timezone.utc),
+        "relevance_score": 7.0,
+        "is_relevant": True,
+        "labels": ["ai-tool"],
+        "digest_sent": False,
+    })
+    store.commit()
+    return store.query_posts()[0]
+
+
+def test_create_bookmark_without_note(bookmark_client, db_session, auth_headers):
+    post = _insert_post_for_bookmark(db_session, "bm1")
+    resp = bookmark_client.post(
+        "/api/bookmarks",
+        json={"article_id": post.id},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["article_id"] == post.id
+    assert data["note"] is None
+
+
+def test_create_bookmark_with_note(bookmark_client, db_session, auth_headers):
+    post = _insert_post_for_bookmark(db_session, "bm2")
+    resp = bookmark_client.post(
+        "/api/bookmarks",
+        json={"article_id": post.id, "note": "investigate for RAG"},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 201
+    assert resp.json()["note"] == "investigate for RAG"
+
+
+def test_create_bookmark_article_not_found(bookmark_client, auth_headers):
+    resp = bookmark_client.post(
+        "/api/bookmarks",
+        json={"article_id": 9999},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 404
+
+
+def test_create_bookmark_duplicate(bookmark_client, db_session, auth_headers):
+    post = _insert_post_for_bookmark(db_session, "bm3")
+    bookmark_client.post("/api/bookmarks", json={"article_id": post.id}, headers=auth_headers)
+    resp = bookmark_client.post("/api/bookmarks", json={"article_id": post.id}, headers=auth_headers)
+    assert resp.status_code == 409
+
+
+def test_list_bookmarks_empty(bookmark_client, auth_headers):
+    resp = bookmark_client.get("/api/bookmarks", headers=auth_headers)
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+def test_list_bookmarks_returns_items(bookmark_client, db_session, auth_headers):
+    post = _insert_post_for_bookmark(db_session, "bm4")
+    bookmark_client.post("/api/bookmarks", json={"article_id": post.id}, headers=auth_headers)
+    resp = bookmark_client.get("/api/bookmarks", headers=auth_headers)
+    assert resp.status_code == 200
+    assert len(resp.json()) == 1
+
+
+def test_delete_bookmark_success(bookmark_client, db_session, auth_headers):
+    post = _insert_post_for_bookmark(db_session, "bm5")
+    create_resp = bookmark_client.post(
+        "/api/bookmarks", json={"article_id": post.id}, headers=auth_headers
+    )
+    bm_id = create_resp.json()["id"]
+    del_resp = bookmark_client.delete(f"/api/bookmarks/{bm_id}", headers=auth_headers)
+    assert del_resp.status_code == 204
+    # Article still exists
+    list_resp = bookmark_client.get("/api/bookmarks", headers=auth_headers)
+    assert list_resp.json() == []
+
+
+def test_delete_bookmark_not_found(bookmark_client, auth_headers):
+    resp = bookmark_client.delete("/api/bookmarks/9999", headers=auth_headers)
+    assert resp.status_code == 404
