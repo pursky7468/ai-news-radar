@@ -402,9 +402,125 @@
 
 ---
 
-## 目前狀態 (2026-04-06)
+## 目前狀態 (2026-04-07)
 
-**Phase 1–15b 全部完成。Phase 15c 待實作。Phase 16 待實作。**
+**Phase 1–16 全部完成。Phase 15c、17、18、19 均已實作完成（2026-04-07）。180 tests pass。**
+
+| Phase | 說明 | 狀態 |
+|-------|------|------|
+| 15c | add_article MCP tool + migration 005 | ✅ 完成 2026-04-07 |
+| 17 | Feature flags + FTS5 + ArxivFetcher | ✅ 完成 2026-04-07 |
+| 18 | Weekly briefing + highlight scorer + MCP tools | ✅ 完成 2026-04-07 |
+| 19 | Bookmarks + USER_CONTEXT personalization | ✅ 完成 2026-04-07 |
+
+---
+
+## 17. v2 Phase A — 跨日期搜尋 + ArXiv 資料來源 ✅ 完成 2026-04-07
+
+> Spec: `specs/full-text-search/spec.md`
+> Spec: `specs/arxiv-fetcher/spec.md`
+> Design: `design.md` § 10, § 9
+
+### 17.0 Feature Flag 框架
+
+- [x] 17.0.1 `config.py` — 新增 `FEATURES` dict：`arxiv_fetcher=False`, `fts_search=False`, `weekly_briefing=False`, `highlight_scorer=False`, `bookmarks=False`
+- [x] 17.0.2 `config.py` — 新增 ArXiv 相關設定：`arxiv_categories`, `arxiv_max_results`
+- [x] 17.0.3 `.env.example` — 新增所有 v2 環境變數
+
+### 17.1 DB Migration 006 — FTS5 Index
+
+- [x] 17.1.1 `alembic/versions/006_fts5_index.py` — 建立 `articles_fts` FTS5 virtual table（`title`, `summary` 欄位）
+- [x] 17.1.2 同 migration 加入三個 sync trigger（INSERT / UPDATE / DELETE on `posts`）
+- [x] 17.1.3 執行 `alembic upgrade head` 後驗證現有所有 API 回應正常
+
+### 17.2 搜尋功能擴充
+
+- [x] 17.2.1 `news_store.py` — `query_posts()` 加入 `date_from` / `date_to` 參數；`fts_search` flag 為 True 時改用 FTS5
+- [x] 17.2.2 `mcp_server.py` — `search_ai_news` 加 `date_from`, `date_to` 可選參數（向下相容）
+- [x] 17.2.3 `routes/news.py` — `GET /api/news` 加 `date_from` / `date_to` query param
+- [ ] 17.2.4 Dashboard — SearchBox 加日期範圍 picker（選做）
+- [x] 17.2.5 `tests/test_news_store.py` — 新增 date_from / date_to 篩選測試
+- [ ] 17.2.6 `tests/test_api.py` — 搜尋日期範圍 endpoint 測試（選做）
+
+### 17.3 ArXiv Fetcher
+
+- [x] 17.3.1 `backend/app/fetcher/arxiv_fetcher.py` — 實作 `ArxivFetcher`
+- [x] 17.3.2 `config.py` — `arxiv_fetcher` feature flag 控制是否載入此 fetcher
+- [x] 17.3.3 `scheduler.py` — `FEATURES["arxiv_fetcher"]` 為 True 時加入 `MultiSourceFetcher`
+- [x] 17.3.4 `alembic` — 確認 `source` 欄位允許 `"arxiv"` 值（無需 migration）
+- [x] 17.3.5 `tests/test_arxiv_fetcher.py` — 8 tests pass
+
+### 17.4 Regression 驗證
+
+- [x] 17.4.1 完整後端測試套件通過（180 tests）
+
+---
+
+## 18. v2 Phase B — 週報 / Top 3 精選 / MCP 擴充 ✅ 完成 2026-04-07
+
+### 18.1 週報生成
+
+- [x] 18.1.1 `backend/app/briefing/weekly_briefing_generator.py` — WeeklyBriefingGenerator
+- [x] 18.1.2 `scheduler.py` — 每週一 08:00 UTC 執行週報 job（flag 控制）
+- [x] 18.1.3 `scripts/generate_weekly_briefing.py` — 手動執行版本
+- [x] 18.1.4 `tests/test_weekly_briefing_generator.py` — 7 tests pass
+
+### 18.2 Top 3 演算法精選
+
+- [x] 18.2.1 `backend/app/briefing/highlight_scorer.py` — `compute_highlight_score(post)`
+- [x] 18.2.2 `config.py` — `highlight_weights` dict
+- [x] 18.2.3 `briefing_generator.py` — flag 控制插入「⭐ 今日精選」區塊
+- [x] 18.2.4 `tests/test_highlight_scorer.py` — 11 tests pass
+
+### 18.3 MCP 新工具
+
+- [x] 18.3.1 `backend/known_tools.txt` — 80+ AI 工具名稱清單
+- [x] 18.3.2 `mcp_server.py` — `get_trending_tools(days, limit)`
+- [x] 18.3.3 `mcp_server.py` — `get_weekly_summary(week_offset)`
+
+### 18.4 Regression 驗證
+
+- [x] 18.4.1 完整測試套件通過（180 tests）
+
+---
+
+## 19. v2 Phase C — 書籤 + 個人化 Context ✅ 完成 2026-04-07
+
+### 19.1 DB Migration 007 — Bookmarks Table
+
+- [x] 19.1.1 `models.py` — `Bookmark` model
+- [x] 19.1.2 `alembic/versions/007_bookmarks.py` — `create_table("bookmarks")` + index
+- [x] 19.1.3 執行後驗證現有 API 無影響
+
+### 19.2 BookmarkStore
+
+- [x] 19.2.1 `news_store.py` — `add_bookmark(article_id, note) -> Bookmark`
+- [x] 19.2.2 `news_store.py` — `get_bookmarks(q=None) -> list[Bookmark]`
+- [x] 19.2.3 `news_store.py` — `delete_bookmark(bookmark_id) -> bool`
+- [x] 19.2.4 `tests/test_news_store.py` — 9 bookmark store tests
+
+### 19.3 Bookmark API
+
+- [x] 19.3.1 `schemas.py` — `BookmarkCreate`, `BookmarkResponse` schema
+- [x] 19.3.2 `routes/bookmarks.py` — `POST/GET/DELETE /api/bookmarks`
+- [x] 19.3.3 `main.py` — 註冊 bookmarks router（flag 控制）
+- [x] 19.3.4 `tests/test_api.py` — 8 bookmark API tests
+
+### 19.4 Dashboard 書籤 UI
+
+- [ ] 19.4.1 `lib/api.ts` — Bookmark interface + API 函式（選做）
+- [ ] 19.4.2 `components/PostCard.tsx` — 書籤按鈕（選做）
+- [ ] 19.4.3 `app/bookmarks/page.tsx` — 書籤列表頁（選做）
+
+### 19.5 個人化 Context
+
+- [x] 19.5.1 `config.py` — `user_context: str = ""`
+- [x] 19.5.2 `briefing_generator.py` — USER_CONTEXT 注入 system prompt
+- [x] 19.5.3 `.env.example` — `USER_CONTEXT=` 範例
+
+### 19.6 Regression 驗證
+
+- [x] 19.6.1 完整測試套件通過（180 tests）
 
 | 項目 | 說明 |
 |------|------|
