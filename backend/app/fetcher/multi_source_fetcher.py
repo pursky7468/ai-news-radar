@@ -17,8 +17,11 @@ class MultiSourceFetcher:
         hn: HackerNewsFetcher,
         reddit: RedditFetcher,
         github: GitHubFetcher,
+        arxiv=None,  # Optional[ArxivFetcher] — injected when feature flag enabled
     ) -> None:
         self._adapters = [hn, reddit, github]
+        if arxiv is not None:
+            self._adapters.append(arxiv)
 
     def fetch(self) -> list[SourcePost]:
         results: list[SourcePost] = []

@@ -209,3 +209,35 @@ def test_get_post_by_url_found(news_store: NewsStore):
 def test_get_post_by_url_not_found(news_store: NewsStore):
     result = news_store.get_post_by_url("https://example.com/nonexistent")
     assert result is None
+
+
+# ---------------------------------------------------------------------------
+# date_from / date_to filter (Phase 17.2)
+# ---------------------------------------------------------------------------
+
+def test_query_filters_by_date_from(news_store: NewsStore):
+    from datetime import date
+    news_store.upsert_post(make_post(external_id="p1", posted_at=datetime(2026, 3, 10, tzinfo=timezone.utc)))
+    news_store.upsert_post(make_post(external_id="p2", posted_at=datetime(2026, 3, 1, tzinfo=timezone.utc)))
+    results = news_store.query_posts(date_from=date(2026, 3, 5))
+    assert len(results) == 1
+    assert results[0].external_id == "p1"
+
+
+def test_query_filters_by_date_to(news_store: NewsStore):
+    from datetime import date
+    news_store.upsert_post(make_post(external_id="p1", posted_at=datetime(2026, 3, 10, tzinfo=timezone.utc)))
+    news_store.upsert_post(make_post(external_id="p2", posted_at=datetime(2026, 3, 1, tzinfo=timezone.utc)))
+    results = news_store.query_posts(date_to=date(2026, 3, 5))
+    assert len(results) == 1
+    assert results[0].external_id == "p2"
+
+
+def test_query_date_from_and_date_to_combined(news_store: NewsStore):
+    from datetime import date
+    news_store.upsert_post(make_post(external_id="p1", posted_at=datetime(2026, 3, 5, tzinfo=timezone.utc)))
+    news_store.upsert_post(make_post(external_id="p2", posted_at=datetime(2026, 3, 15, tzinfo=timezone.utc)))
+    news_store.upsert_post(make_post(external_id="p3", posted_at=datetime(2026, 3, 25, tzinfo=timezone.utc)))
+    results = news_store.query_posts(date_from=date(2026, 3, 10), date_to=date(2026, 3, 20))
+    assert len(results) == 1
+    assert results[0].external_id == "p2"

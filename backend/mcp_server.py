@@ -68,27 +68,53 @@ mcp = FastMCP("ai-news-researcher")
 
 
 @mcp.tool()
-def search_ai_news(query: str, days: int = 0, limit: int = 10) -> str:
+def search_ai_news(
+    query: str,
+    days: int = 0,
+    limit: int = 10,
+    date_from: str | None = None,
+    date_to: str | None = None,
+) -> str:
     """
     Search AI news posts by keyword.
 
     Args:
-        query: Search keyword (e.g. "MCP", "streaming LLM", "AutoGen")
-        days:  Only return posts from the last N days. 0 = all time (default).
-        limit: Maximum number of posts to return (default 10, max 50).
+        query:     Search keyword (e.g. "MCP", "streaming LLM", "AutoGen")
+        days:      Only return posts from the last N days. 0 = all time (default).
+        limit:     Maximum number of posts to return (default 10, max 50).
+        date_from: Optional start date YYYY-MM-DD (inclusive).
+        date_to:   Optional end date YYYY-MM-DD (inclusive).
 
     Returns:
         Markdown list of matching posts with title, source, URL, score, and summary.
     """
+    from datetime import date as _date
+
     limit = min(limit, 50)
     since = None
     if days > 0:
         since = datetime.now(timezone.utc) - timedelta(days=days)
 
+    df = None
+    dt = None
+    if date_from:
+        try:
+            df = _date.fromisoformat(date_from)
+        except ValueError:
+            return f"Invalid date_from: '{date_from}'. Use YYYY-MM-DD."
+    if date_to:
+        try:
+            dt = _date.fromisoformat(date_to)
+        except ValueError:
+            return f"Invalid date_to: '{date_to}'. Use YYYY-MM-DD."
+
     store = _store()
     posts = store.query_posts(
         keyword=query,
         since=since,
+        date_from=df,
+        date_to=dt,
+        fts_enabled=settings.FEATURES["fts_search"],
         is_relevant=True,
         sort="score_desc",
         per_page=limit,

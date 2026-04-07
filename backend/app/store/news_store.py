@@ -1,8 +1,9 @@
 """NewsStore: persistence layer for fetched and scored posts."""
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Optional
 
-from sqlalchemy import func
+import sqlalchemy as sa
+from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
 from app.models import Post, Report, SystemState
@@ -129,14 +130,28 @@ class NewsStore:
         keyword: Optional[str] = None,
         source: Optional[str] = None,
         is_relevant: Optional[bool] = None,
+        date_from: Optional[date] = None,
+        date_to: Optional[date] = None,
+        fts_enabled: bool = False,
         sort: str = "date_desc",
         page: int = 1,
         per_page: int = 20,
     ) -> list[Post]:
-        q = self._session.query(Post)
-        q = self._apply_filters(q, label=label, min_score=min_score, from_date=from_date,
-                                to_date=to_date, since=since, keyword=keyword, source=source,
-                                is_relevant=is_relevant)
+        # FTS5 path: fetch matching rowids then filter the main query
+        if fts_enabled and keyword:
+            fts_ids = self._fts_search(keyword)
+            q = self._session.query(Post).filter(Post.id.in_(fts_ids))
+        else:
+            q = self._session.query(Post)
+
+        q = self._apply_filters(
+            q,
+            label=label, min_score=min_score, from_date=from_date,
+            to_date=to_date, since=since,
+            keyword=keyword if not (fts_enabled and keyword) else None,
+            source=source, is_relevant=is_relevant,
+            date_from=date_from, date_to=date_to,
+        )
         if sort == "score_desc":
             q = q.order_by(Post.relevance_score.desc().nullslast())
         else:
@@ -155,12 +170,35 @@ class NewsStore:
         keyword: Optional[str] = None,
         source: Optional[str] = None,
         is_relevant: Optional[bool] = None,
+        date_from: Optional[date] = None,
+        date_to: Optional[date] = None,
+        fts_enabled: bool = False,
     ) -> int:
-        q = self._session.query(func.count(Post.id))
-        q = self._apply_filters(q, label=label, min_score=min_score, from_date=from_date,
-                                to_date=to_date, since=since, keyword=keyword, source=source,
-                                is_relevant=is_relevant)
+        if fts_enabled and keyword:
+            fts_ids = self._fts_search(keyword)
+            q = self._session.query(func.count(Post.id)).filter(Post.id.in_(fts_ids))
+        else:
+            q = self._session.query(func.count(Post.id))
+        q = self._apply_filters(
+            q,
+            label=label, min_score=min_score, from_date=from_date,
+            to_date=to_date, since=since,
+            keyword=keyword if not (fts_enabled and keyword) else None,
+            source=source, is_relevant=is_relevant,
+            date_from=date_from, date_to=date_to,
+        )
         return q.scalar() or 0
+
+    def _fts_search(self, keyword: str) -> list[int]:
+        """Return Post IDs matching keyword via FTS5."""
+        try:
+            rows = self._session.execute(
+                text("SELECT rowid FROM articles_fts WHERE articles_fts MATCH :q ORDER BY rank"),
+                {"q": keyword},
+            ).fetchall()
+            return [r[0] for r in rows]
+        except Exception:
+            return []
 
     def get_unsent_relevant_posts(
         self, limit: int = 20, since: Optional[datetime] = None
@@ -219,7 +257,7 @@ class NewsStore:
     # ------------------------------------------------------------------
 
     def _apply_filters(self, q, *, label, min_score, from_date, to_date, since, keyword,
-                       source, is_relevant):
+                       source, is_relevant, date_from=None, date_to=None):
         if label is not None:
             q = q.filter(Post.labels.contains(label))
         if min_score is not None:
@@ -228,6 +266,10 @@ class NewsStore:
             q = q.filter(Post.posted_at >= from_date)
         if to_date is not None:
             q = q.filter(Post.posted_at <= to_date)
+        if date_from is not None:
+            q = q.filter(sa.func.date(Post.posted_at) >= date_from.isoformat())
+        if date_to is not None:
+            q = q.filter(sa.func.date(Post.posted_at) <= date_to.isoformat())
         if since is not None:
             q = q.filter(Post.posted_at > since)
         if keyword is not None:

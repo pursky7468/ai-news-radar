@@ -72,7 +72,18 @@ def _make_fetch_job(settings, session_factory) -> callable:
                 github_token=settings.github_token,
                 news_store=store,
             )
-            fetcher = MultiSourceFetcher(hn=hn, reddit=reddit, github=github)
+
+            arxiv = None
+            if settings.FEATURES.get("arxiv_fetcher"):
+                from app.fetcher.arxiv_fetcher import ArxivFetcher
+                arxiv = ArxivFetcher(
+                    categories=settings.arxiv_categories_list,
+                    keywords=settings.hn_keywords_list,
+                    max_results=settings.arxiv_max_results,
+                    news_store=store,
+                )
+
+            fetcher = MultiSourceFetcher(hn=hn, reddit=reddit, github=github, arxiv=arxiv)
             scorer = RelevanceScorer(
                 news_store=store,
                 keywords_config_path=settings.keywords_config_path,

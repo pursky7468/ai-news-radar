@@ -62,6 +62,34 @@ class Settings(BaseSettings):
     # Daily briefing output directory (relative to repo root; empty = disabled)
     briefings_output_dir: str = "briefings"
 
+    # ArXiv fetcher
+    arxiv_categories: str = "cs.AI,cs.LG,cs.CL"
+    arxiv_max_results: int = 50
+
+    # v2 Feature Flags — all default False for safe rollout
+    feature_arxiv_fetcher: bool = False
+    feature_fts_search: bool = False
+    feature_weekly_briefing: bool = False
+    feature_highlight_scorer: bool = False
+    feature_bookmarks: bool = False
+
+    # Personalization
+    user_context: str = ""
+
+    @property
+    def FEATURES(self) -> dict:
+        return {
+            "arxiv_fetcher": self.feature_arxiv_fetcher,
+            "fts_search": self.feature_fts_search,
+            "weekly_briefing": self.feature_weekly_briefing,
+            "highlight_scorer": self.feature_highlight_scorer,
+            "bookmarks": self.feature_bookmarks,
+        }
+
+    @property
+    def arxiv_categories_list(self) -> list[str]:
+        return [c.strip() for c in self.arxiv_categories.split(",") if c.strip()]
+
     @property
     def hn_keywords_list(self) -> list[str]:
         return [k.strip() for k in self.hn_keywords.split(",") if k.strip()]
