@@ -424,8 +424,8 @@ def get_weekly_summary(week_offset: int = 0) -> str:
         _BACKEND_DIR / "briefings" / "weekly" / filename,
         _BACKEND_DIR.parent / "briefings" / "weekly" / filename,
     ]
-    if settings.briefings_output_dir:
-        candidates.insert(0, Path(settings.briefings_output_dir) / "weekly" / filename)
+    if settings.briefings_output_dir_resolved:
+        candidates.insert(0, Path(settings.briefings_output_dir_resolved) / "weekly" / filename)
 
     for path in candidates:
         if path.exists():

@@ -94,7 +94,7 @@ def _catchup_digest() -> None:
                     groq_api_key=settings.groq_api_key,
                     groq_model=settings.groq_model,
                     lookback_hours=settings.digest_lookback_hours,
-                    briefings_output_dir=settings.briefings_output_dir or None,
+                    briefings_output_dir=settings.briefings_output_dir_resolved,
                     user_context=settings.user_context,
                     highlight_scorer_enabled=settings.FEATURES.get("highlight_scorer", False),
                 )

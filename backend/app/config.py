@@ -1,4 +1,5 @@
 """Application configuration loaded from environment variables."""
+from pathlib import Path
 from typing import Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -59,8 +60,24 @@ class Settings(BaseSettings):
     groq_api_key: str = ""
     groq_model: str = "llama-3.3-70b-versatile"
 
-    # Daily briefing output directory (relative to repo root; empty = disabled)
+    # Daily briefing output directory (relative to repo root, or absolute; empty = disabled)
     briefings_output_dir: str = "briefings"
+
+    @property
+    def briefings_output_dir_resolved(self) -> Optional[str]:
+        """Return an absolute path string for the briefings output directory.
+
+        Relative paths are resolved against the repo root (parent of backend/),
+        so the result is CWD-independent regardless of how uvicorn is launched.
+        """
+        if not self.briefings_output_dir:
+            return None
+        raw = Path(self.briefings_output_dir)
+        if raw.is_absolute():
+            return str(raw)
+        # This file lives at backend/app/config.py → repo root is 2 levels up
+        repo_root = Path(__file__).parent.parent.parent
+        return str((repo_root / raw).resolve())
 
     # ArXiv fetcher
     arxiv_categories: str = "cs.AI,cs.LG,cs.CL"

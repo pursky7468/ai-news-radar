@@ -47,7 +47,7 @@ def main() -> None:
         posts = store.query_posts(is_relevant=True, since=since, per_page=200, sort="score_desc")
         print(f"Found {len(posts)} relevant posts in the last 7 days.")
 
-        output_dir = Path(settings.briefings_output_dir or "briefings") / "weekly"
+        output_dir = Path(settings.briefings_output_dir_resolved or "briefings") / "weekly"
         generator = WeeklyBriefingGenerator(
             groq_api_key=settings.groq_api_key,
             groq_model=settings.groq_model,

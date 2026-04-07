@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import logging
 
+from pathlib import Path
+
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
@@ -131,7 +133,7 @@ def _make_digest_job(settings, session_factory) -> callable:
                 groq_api_key=settings.groq_api_key,
                 groq_model=settings.groq_model,
                 lookback_hours=settings.digest_lookback_hours,
-                briefings_output_dir=settings.briefings_output_dir or None,
+                briefings_output_dir=settings.briefings_output_dir_resolved,
                 user_context=settings.user_context,
                 highlight_scorer_enabled=settings.FEATURES.get("highlight_scorer", False),
             )
@@ -160,7 +162,7 @@ def _make_weekly_briefing_job(settings, session_factory) -> callable:
             generator = WeeklyBriefingGenerator(
                 groq_api_key=settings.groq_api_key,
                 groq_model=settings.groq_model,
-                output_dir=settings.briefings_output_dir + "/weekly" if settings.briefings_output_dir else "briefings/weekly",
+                output_dir=str(Path(settings.briefings_output_dir_resolved) / "weekly") if settings.briefings_output_dir_resolved else "briefings/weekly",
             )
             generator.generate(posts)
         except Exception:
