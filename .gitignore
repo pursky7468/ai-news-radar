@@ -35,3 +35,10 @@ Thumbs.db
 
 # Generated briefings (local only)
 briefings/
+
+# Test artifacts
+test-results/
+dashboard/tsconfig.tsbuildinfo
+
+# Claude Code local config
+.claude/
