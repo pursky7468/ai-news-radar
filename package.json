@@ -1,0 +1,15 @@
+{
+  "name": "x-ai-news-researcher",
+  "version": "1.0.0",
+  "description": "Automated X (Twitter) research pipeline that continuously fetches, scores, and surfaces AI-related posts.",
+  "main": "playwright.config.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.58.2"
+  }
+}
