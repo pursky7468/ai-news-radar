@@ -189,7 +189,40 @@ add_article(
 - Dashboard / report 頁面
 - `search_ai_news` tool（已支援全時間搜尋）
 
-### Phase 16：語意搜尋（未來）
+### Phase 16：MCP 工具擴充（v2 Phase B）🚧 待實作
+
+> 任務清單：`tasks.md` § 18.3
+> Spec：`specs/weekly-briefing/spec.md`
+
+**新增工具（不修改現有三個工具）**：
+
+```python
+get_trending_tools(days: int = 7, limit: int = 10) -> list[dict]
+# 回傳近 N 天熱度上升的工具清單
+# 資料結構：[{"tool": "LangChain", "count": 12, "sample_url": "..."}]
+
+get_weekly_summary(week_offset: int = 0) -> str
+# 回傳週報 Markdown 內容
+# week_offset=0 本週，-1 上週
+```
+
+**搜尋工具擴充（向下相容）**：
+
+```python
+# 現有簽名（繼續有效）
+search_ai_news(query: str, days: int = 0, limit: int = 10)
+
+# 擴充後（新參數全部 optional，現有呼叫無需修改）
+search_ai_news(
+    query: str,
+    days: int = 0,
+    limit: int = 10,
+    date_from: str = None,   # YYYY-MM-DD，可選
+    date_to: str = None,     # YYYY-MM-DD，可選
+)
+```
+
+### Phase 17：語意搜尋（未來）
 
 - 文章內容做 embedding（Groq embedding API 或本地模型）
 - SQLite `sqlite-vec` 或 pgvector
@@ -198,6 +231,18 @@ add_article(
 
 ---
 
+## 目前 MCP Tools 清單
+
+| Tool | 簽名 | 狀態 |
+|------|------|------|
+| `search_ai_news` | `(query, days=0, limit=10)` | ✅ Phase 15b 完成 |
+| `get_daily_report` | `(date="today")` | ✅ Phase 15b 完成 |
+| `get_posts_by_category` | `(category, days=7, limit=10)` | ✅ Phase 15b 完成 |
+| `add_article` | `(url, content, labels, title, posted_at, score)` | 🚧 Phase 15c 待實作 |
+| `search_ai_news` (擴充) | `+date_from, +date_to` | 🚧 v2 Phase A 待實作 |
+| `get_trending_tools` | `(days=7, limit=10)` | 🚧 v2 Phase B 待實作 |
+| `get_weekly_summary` | `(week_offset=0)` | 🚧 v2 Phase B 待實作 |
+
 ## 目前狀態
 
 | 情境 | 現況 |
@@ -205,4 +250,7 @@ add_article(
 | 情境 2（每日簡報）| ✅ 完成：自動生成 `briefings/YYYY-MM-DD.md` |
 | 情境 1（MCP 搜尋）| ✅ 完成：3 個工具已接入 Claude Code |
 | 情境 1b（知識庫擴充）| 🚧 Phase 15c 待實作 |
+| 跨日期搜尋 | 🚧 v2 Phase A 待實作 |
+| 週報 / 趨勢摘要 | 🚧 v2 Phase B 待實作 |
+| 熱門工具查詢 | 🚧 v2 Phase B 待實作 |
 | Email 交付 | 暫緩 |

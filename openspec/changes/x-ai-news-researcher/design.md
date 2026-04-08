@@ -19,12 +19,27 @@ Stakeholders: internal AI research team consuming the news feed.
 - Provide a lightweight web dashboard for browsing results
 - Send periodic digest emails or webhook notifications
 
-**Non-Goals:**
+**Non-Goals (v1):**
 - Fetching non-public content or requiring user OAuth login
 - Real-time streaming (polling is sufficient for v1)
 - X (Twitter) / LinkedIn / Mastodon support — three open sources for now
 - Full-text search with Elasticsearch — basic SQL filtering is sufficient for v1
 - Mobile app
+
+**Goals (v2 — based on user feedback 2026-04-06):**
+- Add ArXiv as a fourth data source (cs.AI, cs.LG, cs.CL categories)
+- Cross-date full-text search via SQLite FTS5 (no Elasticsearch dependency)
+- Weekly trend briefing aggregating 7-day signals
+- Top 3 algorithmic daily highlight (composite score ranking)
+- Expanded MCP tools for agent use cases (`get_trending_tools`, `get_weekly_summary`)
+- Article bookmark + personal notes system
+- Lightweight personalization via `USER_CONTEXT` environment variable
+
+**Non-Goals (v2):**
+- X / Twitter integration (API cost $100+/month, high noise ratio)
+- Multi-tenant user accounts or SaaS identity layer (deferred; `USER_CONTEXT` env var is sufficient for single-user deployments)
+- Manual editorial curation — all highlights are algorithm-selected
+- Obsidian / Notion export (deferred; search covers the recall use case first)
 
 ## Decisions
 
@@ -150,3 +165,117 @@ Backend test stack: `pytest` + `pytest-asyncio` + `pytest-cov` + `factory-boy` (
 - Should the digest be sent via email (SendGrid) or webhook (Slack/Discord)? → Default to both, configurable per environment.
 - What relevance score threshold defines "newsworthy" for the digest? → Start at 7/10, tune after first week of data.
 - Should users be able to add custom subreddits or GitHub repos to monitor via the API? → Deferred to v2.
+
+---
+
+## v2 Architecture Decisions
+
+### 9. Fourth Data Source: ArXiv
+
+**Decision**: Add `ArxivFetcher` implementing the existing `SourceFetcher` interface. Fetch from ArXiv Atom API (`export.arxiv.org/api/query`) filtering by categories `cs.AI`, `cs.LG`, `cs.CL`. Cap at `ARXIV_MAX_RESULTS=50` per day to control token usage.
+
+**Rationale**: ArXiv papers are the earliest signal for AI technical advances, predating HN/Reddit discussion by days or weeks. Free API with no auth required. Existing `SourcePost` schema and scoring pipeline accept the output without modification.
+
+**Pre-filter strategy**: Apply keyword filter on `ti:` (title) or `abs:` (abstract) fields in the ArXiv query string before results enter the scoring pipeline. This reduces token consumption significantly.
+
+**Alternatives considered**:
+- Semantic Scholar API: More structured but requires registration; ArXiv is simpler.
+- arXiv RSS feeds: Limited to 100 entries with no keyword filtering; API is more flexible.
+
+---
+
+### 10. Full-Text Search: SQLite FTS5
+
+**Decision**: Create an `articles_fts` FTS5 virtual table mirroring `title` and `summary` columns. Add database triggers to keep it in sync. Extend `search_ai_news` MCP tool and `GET /api/news?q=` to accept optional `date_from` / `date_to` parameters.
+
+**Rationale**: SQLite FTS5 is built-in, zero infrastructure cost, and sufficient for single-server workloads. No Elasticsearch or external service required. Backward-compatible: existing `q=` parameter continues to work unchanged.
+
+**Migration**: Alembic migration 006 creates the FTS5 virtual table and three sync triggers (INSERT, UPDATE, DELETE).
+
+---
+
+### 11. Weekly Briefing
+
+**Decision**: Add a `WeeklyBriefingGenerator` that re-uses the existing `BriefingGenerator` infrastructure with a 7-day aggregation SQL query and a different system prompt emphasizing trend comparison. Schedule every Monday 08:00 via APScheduler. Output: `briefings/weekly/YYYY-WNN.md`.
+
+**Rationale**: The daily briefing pipeline is already proven. A weekly variant is a prompt + query change, not a new subsystem. Re-using the same LLM client and Markdown output format keeps maintenance overhead near zero.
+
+---
+
+### 12. Top 3 Algorithmic Highlight
+
+**Decision**: Compute a `highlight_score` at briefing generation time using the formula:
+```
+highlight_score = relevance_score * 0.5
+               + source_weight * 0.3   # arxiv=4, github=3, hn=2, reddit=1
+               + recency_decay * 0.2   # 1.0 if < 24h, 0.5 if < 48h, 0.0 otherwise
+```
+Top 3 posts by `highlight_score` are marked as `[⭐ 精選]` in the daily briefing output. Coefficients are configurable in `config.py`.
+
+**Rationale**: No additional LLM call required. Deterministic and auditable. Coefficients in config allow tuning without code changes.
+
+---
+
+### 13. Expanded MCP Tools
+
+**Decision**: Add two new MCP tools to `backend/mcp_server.py`:
+- `get_trending_tools(days=7, limit=10)`: matches known tool names from a `known_tools.txt` keyword list against recent articles, returns frequency-ranked list
+- `get_weekly_summary(week_offset=0)`: reads the corresponding weekly briefing Markdown file and returns its content
+
+**Rationale**: Both tools are pure read operations over existing data. No new DB schema required. `known_tools.txt` avoids NLP dependency for entity extraction. Backward-compatible: existing three tools unchanged.
+
+---
+
+### 14. Bookmarks
+
+**Decision**: Add a `bookmarks` table with `(id, article_id FK, note TEXT, created_at)`. Expose via:
+- `POST /api/bookmarks` — create bookmark with optional note
+- `GET /api/bookmarks` — list bookmarks (supports `q=` search)
+- `DELETE /api/bookmarks/{id}` — remove bookmark
+
+Dashboard adds a bookmark button to each `PostCard`. No MCP exposure — bookmarks are personal data, not knowledge base content.
+
+**Rationale**: Minimal schema addition. Isolated from all existing scoring, digest, and briefing logic. Provides the "information retention" capability users need most.
+
+---
+
+### 15. Personalization Context (Lightweight)
+
+**Decision**: Read `USER_CONTEXT` environment variable in `BriefingGenerator` and inject it into the LLM system prompt as additional context. No user table, no dynamic scoring changes.
+
+**Rationale**: Solves the core personalization use case (biased briefing toward current work) at near-zero implementation cost. Avoids introducing a user identity layer prematurely.
+
+**Example**:
+```bash
+USER_CONTEXT="I am currently building a RAG pipeline with LangChain and pgvector"
+```
+
+---
+
+### 16. Feature Flags
+
+**Decision**: Add a `FEATURES` dict to `config.py` controlling opt-in for each v2 feature. Default all to `False` during rollout.
+
+```python
+FEATURES = {
+    "arxiv_fetcher": False,
+    "fts_search": False,
+    "weekly_briefing": False,
+    "highlight_scorer": False,
+    "bookmarks": False,
+}
+```
+
+**Rationale**: Allows safe, incremental rollout. Any feature can be disabled instantly without code deployment if issues arise.
+
+---
+
+### Deployment Order (v2)
+
+1. Alembic migrations (FTS5 index, bookmarks table, url index) — verify existing features unaffected
+2. Backend changes with all feature flags `False` — run full regression test suite
+3. Enable `fts_search` — monitor 24h
+4. Enable `arxiv_fetcher` — monitor token usage
+5. Enable `weekly_briefing` + `highlight_scorer`
+6. Dashboard UI updates (bookmarks button, search date range) — pure frontend, no backend risk
+7. Enable `bookmarks`
