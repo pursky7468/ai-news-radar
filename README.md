@@ -1,15 +1,84 @@
-# AI News Researcher
+# AI News Radar
 
-Automated multi-source AI news pipeline that continuously fetches, scores, and surfaces AI-related posts from **Hacker News**, **Reddit**, and **GitHub** — no paid API credentials required.
+> Self-hosted multi-source AI news aggregator with MCP server — build your personal AI knowledge base and query it directly in Claude.
+
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Python](https://img.shields.io/badge/python-3.11+-green.svg)
+![Tests](https://img.shields.io/badge/tests-180%20passed-brightgreen.svg)
+![MCP](https://img.shields.io/badge/MCP-server%20included-purple.svg)
+
+---
+
+## Why This Project?
+
+Most AI news tools are **one-time searches** — they query the web, return results, and forget everything. AI News Radar is different:
+
+- **Persistent knowledge base** — continuously fetches and stores AI news from 4 sources, building a searchable local database that grows over time
+- **Zero paid APIs for core functionality** — HN, Reddit, GitHub, and ArXiv are all free
+- **MCP Server included** — Claude can query your personal AI news database directly in conversation, without switching tools
+- **Daily Chinese briefing** — auto-generated Traditional Chinese (zh-TW) daily digest via Groq/Gemini (optional, API key required)
+
+---
 
 ## Architecture
 
 - **Backend**: FastAPI + APScheduler (Python 3.11)
-- **Sources**: Hacker News (Algolia API), Reddit (public JSON), GitHub (REST API)
-- **Scoring**: TF-IDF + keyword weight model (no external API)
+- **Sources**: Hacker News (Algolia API), Reddit (public JSON), GitHub (REST API), ArXiv (Atom API)
+- **Scoring**: TF-IDF + keyword weight model (no external API required)
 - **Storage**: PostgreSQL (production) / SQLite (dev)
 - **Dashboard**: Next.js 14 (TypeScript + Tailwind CSS)
+- **MCP Server**: 5 tools for direct Claude integration
 - **Delivery**: Email (SMTP) + webhook digest
+
+---
+
+## MCP Server — Claude Integration
+
+AI News Radar ships with a built-in MCP Server. Once configured, Claude can query your local AI news database directly in conversation.
+
+### Available MCP Tools
+
+| Tool | Signature | Description |
+|------|-----------|-------------|
+| `search_ai_news` | `(query, days=0, limit=10)` | Full-text search across all stored articles |
+| `get_daily_report` | `(date="today")` | Retrieve the daily briefing for a given date |
+| `get_posts_by_category` | `(category, days=7, limit=10)` | Fetch posts by category (ai-agent, ai-tool, ai-model) |
+| `get_trending_tools` | `(days=7, limit=10)` | Top trending AI tools by mention count |
+| `get_weekly_summary` | `(week_offset=0)` | Weekly trend summary (0=this week, -1=last week) |
+
+### Setup
+
+**Step 1 — Start the backend**
+```bash
+cd backend
+uvicorn app.main:app --port 8000
+```
+
+**Step 2 — Configure Claude Code**
+
+Add to your Claude Code MCP settings (`~/.claude/settings.json` or project-level):
+```json
+{
+  "mcpServers": {
+    "ai-news": {
+      "command": "python",
+      "args": ["/absolute/path/to/backend/mcp_server.py"],
+      "env": {
+        "DATABASE_URL": "sqlite:////absolute/path/to/backend/dev.db",
+        "API_KEY": "changeme"
+      }
+    }
+  }
+}
+```
+
+**Step 3 — Use in Claude**
+```
+# Examples
+What AI agent tools trended this week?
+Search my news database for "RAG pipeline" from the last 7 days.
+Show me today's AI briefing.
+```
 
 ---
 
@@ -228,6 +297,8 @@ npx playwright test e2e/dashboard.spec.js --reporter=line
 | `GITHUB_KEYWORDS` | 否 | GitHub repo 搜尋關鍵字（預設：`ai agent,llm,rag`） |
 | `GITHUB_FETCH_LIMIT` | 否 | GitHub 每次 fetch 最多幾筆（預設 30） |
 | `GITHUB_TOKEN` | 否 | GitHub Personal Access Token（提升 Search API rate limit 到 30 rpm） |
+| `ARXIV_CATEGORIES` | 否 | ArXiv 分類，逗號分隔（預設：`cs.AI,cs.LG,cs.CL`） |
+| `ARXIV_MAX_RESULTS` | 否 | ArXiv 每次 fetch 最多幾筆（預設 50） |
 | `SMTP_HOST` | 否 | Email digest 用 SMTP 主機 |
 | `SMTP_PORT` | 否 | SMTP port（預設 587） |
 | `SMTP_USER` | 否 | SMTP 帳號 |
@@ -238,6 +309,9 @@ npx playwright test e2e/dashboard.spec.js --reporter=line
 | `FETCH_INTERVAL_MINUTES` | 否 | 自動 fetch 間隔（預設 15） |
 | `DIGEST_CRON` | 否 | Digest 排程 cron（預設 `0 8 * * *`） |
 | `RELEVANCE_THRESHOLD` | 否 | 相關性最低分數（預設 5） |
+| `GEMINI_API_KEY` | 否 | Google Gemini API Key（中文日報，選填） |
+| `GROQ_API_KEY` | 否 | Groq API Key（優先於 Gemini，選填） |
+| `USER_CONTEXT` | 否 | 個人化 context，注入至 briefing 提示詞（例：`I am building a RAG pipeline`） |
 
 ---
 
@@ -255,21 +329,11 @@ npx playwright test e2e/dashboard.spec.js --reporter=line
 | GET | `/api/news` | 列出 posts（支援 label/score/keyword/source/since 過濾） |
 | GET | `/api/news/{id}` | 取得單筆 post |
 | POST | `/api/digest/trigger` | 手動觸發 digest |
+| GET | `/api/bookmarks` | 列出收藏 |
+| POST | `/api/bookmarks` | 新增收藏 |
+| DELETE | `/api/bookmarks/{id}` | 刪除收藏 |
 
-所有 `/api/news*` 和 `/api/digest*` 需帶 `X-API-Key: <your_api_key>` header。
-
-### 支援的查詢參數 (`GET /api/news`)
-
-| 參數 | 型別 | 說明 |
-|------|------|------|
-| `source` | string | 篩選來源：`hackernews` / `reddit` / `github` |
-| `since` | ISO 8601 | 只回傳 `posted_at > since` 的 posts（用於 auto-refresh） |
-| `label` | string | 篩選 label（`ai-agent` / `ai-tool` / `ai-model` / `other`） |
-| `min_score` | float | 最低相關性分數 |
-| `q` | string | 關鍵字搜尋（全文） |
-| `sort` | string | 排序：`date_desc`（預設）/ `score_desc` |
-| `page` | int | 頁碼（預設 1） |
-| `per_page` | int | 每頁筆數（預設 20，最大 100） |
+所有 `/api/news*`、`/api/digest*`、`/api/bookmarks*` 需帶 `X-API-Key: <your_api_key>` header。
 
 完整文件：http://localhost:8000/docs
 
@@ -287,7 +351,42 @@ npx playwright test e2e/dashboard.spec.js --reporter=line
 → 確認 backend 有資料（先執行 seed 步驟），且 `.env.local` 的 API URL 正確
 
 **Q: GitHub API 回傳 403 / rate limit 超過**
-→ 設定 `GITHUB_TOKEN` 環境變數（GitHub Personal Access Token），可將 Search API rate limit 從 10 rpm 提升到 30 rpm
+→ 設定 `GITHUB_TOKEN` 環境變數，可將 Search API rate limit 從 10 rpm 提升到 30 rpm
 
 **Q: Reddit API 回傳 403**
 → Reddit 公開 API 需要自訂 User-Agent。系統已自動設定，若仍出現問題請確認網路環境沒有封鎖 reddit.com
+
+---
+
+## Roadmap
+
+### v1 — Implemented ✅
+- Multi-source fetching (HN, Reddit, GitHub)
+- Keyword weight scoring + relevance classification
+- Daily Traditional Chinese briefing (Groq/Gemini)
+- REST API + Next.js dashboard
+- MCP Server (3 tools)
+
+### v2 — In Progress 🚧
+- [x] ArXiv as 4th data source (cs.AI, cs.LG, cs.CL)
+- [x] SQLite FTS5 full-text search with date range filtering
+- [x] Weekly briefing + trend summary
+- [x] Top 3 algorithmic daily highlight
+- [x] Expanded MCP tools (`get_trending_tools`, `get_weekly_summary`)
+- [x] Article bookmarks + personal notes
+
+### v3 — Planned 📋
+- Semantic search (embedding-based)
+- Official changelog RSS feeds (OpenAI, Anthropic, Google)
+- Trend visualization (keyword frequency over time)
+- Multi-user support
+
+---
+
+## Contributing
+
+Issues and PRs are welcome. Please open an issue first to discuss what you'd like to change.
+
+## License
+
+[MIT](LICENSE)

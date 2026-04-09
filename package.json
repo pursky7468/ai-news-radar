@@ -1,14 +1,25 @@
 {
-  "name": "x-ai-news-researcher",
+  "name": "ai-news-radar",
   "version": "1.0.0",
-  "description": "Automated X (Twitter) research pipeline that continuously fetches, scores, and surfaces AI-related posts.",
+  "description": "Self-hosted multi-source AI news aggregator with MCP server — build your personal AI knowledge base and query it directly in Claude.",
   "main": "playwright.config.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "keywords": [
+    "ai",
+    "llm",
+    "mcp",
+    "news-aggregator",
+    "hacker-news",
+    "reddit",
+    "arxiv",
+    "fastapi",
+    "nextjs",
+    "mcp-server"
+  ],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "devDependencies": {
     "@playwright/test": "^1.58.2"
   }
