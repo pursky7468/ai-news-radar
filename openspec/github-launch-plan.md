@@ -1,7 +1,8 @@
 # GitHub 開源發佈規劃
 
-**文件版本**：1.0  
+**文件版本**：1.1  
 **建立日期**：2026-04-09  
+**最後更新**：2026-04-09  
 **審閱團隊**：PM、業務、工程
 
 ---
@@ -87,47 +88,39 @@ vs.
 
 ### 4.1 發佈前準備清單
 
-#### Phase 1 — 內容清理（工程，1-2 天）
+#### Phase 1 — 內容清理（工程）✅ 完成
 
-- [ ] 確認 `.env.example` 無真實金鑰（已確認安全）
-- [ ] 將 `openspec/product-feedback.md` 從 git 歷史移除（含商業策略，不宜公開）
-- [ ] 新增 `LICENSE`（建議 MIT）
-- [ ] 新增 `.github/ISSUE_TEMPLATE/`（bug report + feature request）
-- [ ] 新增 `CONTRIBUTING.md`（貢獻指南）
-- [ ] 確認 `.gitignore` 完整（已更新）
+- [x] 確認 `.env.example` 無真實金鑰（已確認安全）
+- [x] 將 `openspec/product-feedback.md` 從 git 歷史移除（`git filter-branch` 重寫 34 個 commit）
+- [x] 新增 `LICENSE`（MIT）
+- [x] 新增 `CONTRIBUTING.md`（貢獻指南）
+- [x] 確認 `.gitignore` 完整（已更新：排除 test-results/、.claude/、tsconfig.tsbuildinfo）
+- [ ] 新增 `.github/ISSUE_TEMPLATE/`（bug report + feature request）— 待後續補充
 
-#### Phase 2 — README 優化（PM + 工程，1 天）
+#### Phase 2 — README 優化（PM + 工程）✅ 完成
 
-現有 README 已有架構說明與安裝步驟，需補充：
+- [x] 加入 `## Why this project?`（30 秒電梯簡報）
+- [x] 加入 `## Roadmap` 區塊（v1 ✅ / v2 🚧 / v3 📋）
+- [x] 加入 Badge（License、Python version、Tests passing、MCP）
+- [x] 加入 MCP 設定說明（完整 setup guide + 5 個工具列表）
+- [x] 更新架構說明（加入 ArXiv 第四資料來源）
+- [x] 補充 bookmarks API 端點
+- [ ] 加入 **Demo GIF / Screenshot** — 待實機截圖後補充
 
-- [ ] 加入 **Demo GIF / Screenshot**（Dashboard + MCP 使用截圖）
-- [ ] 加入 `## Roadmap` 區塊（v2 規劃，公開版本）
-- [ ] 加入 `## Why this project?`（30 秒電梯簡報）
-- [ ] 加入 Badge（License、Python version、Tests passing）
-- [ ] 加入 MCP 設定說明（這是最有吸引力的功能，需要獨立 section）
+#### Phase 3 — 專案名稱與定位（PM + 業務）✅ 完成
 
-#### Phase 3 — 專案名稱與定位（PM + 業務）
+- [x] 改名為 `ai-news-radar`（package.json name + description 已更新）
+- [x] README 標題與副標題更新
 
-| 選項 | 優點 | 缺點 |
-|------|------|------|
-| `x-ai-news-researcher`（現有） | 已有 commit 歷史 | 易誤解為 X/Twitter；不好搜尋 |
-| `ai-news-radar` | 直觀、好記 | 無 MCP 關鍵字 |
-| `ai-news-mcp` | MCP 生態系關鍵字加分 | 太窄，忽略 dashboard/briefing |
-| `newsradar-ai` | 簡短、好搜尋 | 無明顯 AI 訊號 |
+#### Phase 4 — 推上 GitHub ⏳ 進行中
 
-**PM 建議**：`ai-news-radar`，副標題強調 MCP。
-
-#### Phase 4 — GitHub Repository 設定（工程，半天）
-
-- [ ] 設定 Repository Topics（關鍵字 SEO）：
-  ```
-  ai, llm, mcp, news-aggregator, hacker-news, reddit, arxiv,
-  fastapi, nextjs, python, mcp-server, ai-tools, briefing
-  ```
-- [ ] 開啟 Discussions（社群問答）
-- [ ] 設定 GitHub Actions（CI：pytest + eslint）
+- [x] 所有變更已 commit，本地 git 歷史乾淨
+- [ ] 安裝 gh CLI（`winget install GitHub.cli`）— 使用者已安裝，重開 Claude Code 後繼續
+- [ ] `gh auth login`
+- [ ] `gh repo create ai-news-radar --public`
+- [ ] `git remote add origin` + `git push -u origin master`
+- [ ] 設定 Repository Topics（SEO）
 - [ ] 建立第一個 Release Tag（`v1.0.0`）
-- [ ] 設定 About description（140 字以內）
 
 ### 4.2 發佈策略（業務視角）
 
