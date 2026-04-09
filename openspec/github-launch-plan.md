@@ -112,15 +112,17 @@ vs.
 - [x] 改名為 `ai-news-radar`（package.json name + description 已更新）
 - [x] README 標題與副標題更新
 
-#### Phase 4 — 推上 GitHub ⏳ 進行中
+#### Phase 4 — 推上 GitHub ✅ 完成（2026-04-09）
 
 - [x] 所有變更已 commit，本地 git 歷史乾淨
-- [ ] 安裝 gh CLI（`winget install GitHub.cli`）— 使用者已安裝，重開 Claude Code 後繼續
-- [ ] `gh auth login`
-- [ ] `gh repo create ai-news-radar --public`
-- [ ] `git remote add origin` + `git push -u origin master`
-- [ ] 設定 Repository Topics（SEO）
-- [ ] 建立第一個 Release Tag（`v1.0.0`）
+- [x] 安裝 gh CLI
+- [x] `gh auth login`
+- [x] `gh repo create ai-news-radar --public` → https://github.com/pursky7468/ai-news-radar
+- [x] `git remote add origin` + `git push -u origin master`
+- [x] 設定 Repository Topics（ai, mcp, fastapi, nextjs, llm, claude, hacker-news, self-hosted）
+- [x] 建立 Release Tag `v1.0.0` → https://github.com/pursky7468/ai-news-radar/releases/tag/v1.0.0
+- [x] 新增 `.github/ISSUE_TEMPLATE/`（bug report + feature request）
+- [x] 新增 `.github/workflows/ci.yml`（GitHub Actions CI）
 
 ### 4.2 發佈策略（業務視角）
 
