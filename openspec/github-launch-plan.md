@@ -1,9 +1,32 @@
 # GitHub 開源發佈規劃
 
-**文件版本**：1.1  
+**文件版本**：1.2  
 **建立日期**：2026-04-09  
 **最後更新**：2026-04-09  
 **審閱團隊**：PM、業務、工程
+
+---
+
+## 目前進度總結（2026-04-09）
+
+### ✅ 已完成
+
+| Phase | 內容 | 完成日期 |
+|-------|------|----------|
+| Phase 1 | 內容清理（.gitignore、LICENSE、CONTRIBUTING、敏感資料移除） | 2026-04-09 |
+| Phase 2 | README 優化（badges、MCP 說明、Roadmap、架構圖） | 2026-04-09 |
+| Phase 3 | 專案改名 `ai-news-radar` | 2026-04-09 |
+| Phase 4 | GitHub repo 建立、程式碼推送、Topics、Release v1.0.0、CI、Issue Templates | 2026-04-09 |
+
+**Repo 已公開**：https://github.com/pursky7468/ai-news-radar  
+**Release**：https://github.com/pursky7468/ai-news-radar/releases/tag/v1.0.0
+
+### ⏸ Pending（暫緩）
+
+| 項目 | 說明 |
+|------|------|
+| Demo GIF / Screenshot | 需實機錄製，待安排時間製作 |
+| 社群推廣（HN / Reddit / Twitter） | 已取消，不在目前執行範圍 |
 
 ---
 
@@ -95,7 +118,7 @@ vs.
 - [x] 新增 `LICENSE`（MIT）
 - [x] 新增 `CONTRIBUTING.md`（貢獻指南）
 - [x] 確認 `.gitignore` 完整（已更新：排除 test-results/、.claude/、tsconfig.tsbuildinfo）
-- [ ] 新增 `.github/ISSUE_TEMPLATE/`（bug report + feature request）— 待後續補充
+- [x] 新增 `.github/ISSUE_TEMPLATE/`（bug report + feature request）
 
 #### Phase 2 — README 優化（PM + 工程）✅ 完成
 
@@ -105,7 +128,7 @@ vs.
 - [x] 加入 MCP 設定說明（完整 setup guide + 5 個工具列表）
 - [x] 更新架構說明（加入 ArXiv 第四資料來源）
 - [x] 補充 bookmarks API 端點
-- [ ] 加入 **Demo GIF / Screenshot** — 待實機截圖後補充
+- [ ] 加入 **Demo GIF / Screenshot** — ⏸ Pending（需實機錄製）
 
 #### Phase 3 — 專案名稱與定位（PM + 業務）✅ 完成
 
@@ -124,42 +147,28 @@ vs.
 - [x] 新增 `.github/ISSUE_TEMPLATE/`（bug report + feature request）
 - [x] 新增 `.github/workflows/ci.yml`（GitHub Actions CI）
 
-### 4.2 發佈策略（業務視角）
+### 4.2 發佈策略（業務視角）⏸ Pending
 
-#### 目標平台與時機
+> **狀態說明**：社群推廣（HN / Reddit / Twitter）已暫緩，不在目前執行範圍內。
+> 待 Demo GIF 完成後再評估是否啟動。
 
-| 平台 | 發佈策略 | 預期效果 |
-|------|----------|----------|
-| **Hacker News** | 週二或週三早上（美東時間）發 Show HN | 最高曝光；觸達核心 AI 開發者族群 |
-| **Reddit r/MachineLearning** | 同步發文，強調 ArXiv 整合 | 研究人員族群 |
-| **Reddit r/LocalLLaMA** | 強調 MCP + Claude 整合，自架隱私性 | 本地部署愛好者 |
-| **Twitter/X** | Demo 影片 + MCP 功能截圖 | 擴散效果 |
-| **awesome-mcp-servers** | 提交 PR 加入清單 | 長期曝光，MCP 生態系入口 |
+#### 目標平台與時機（保留供未來參考）
 
-#### Show HN 文案草稿（業務撰寫）
+| 平台 | 發佈策略 | 預期效果 | 狀態 |
+|------|----------|----------|------|
+| **Hacker News** | 週二或週三早上（美東時間）發 Show HN | 最高曝光；觸達核心 AI 開發者族群 | ⏸ Pending |
+| **Reddit r/MachineLearning** | 同步發文，強調 ArXiv 整合 | 研究人員族群 | ⏸ Pending |
+| **Reddit r/LocalLLaMA** | 強調 MCP + Claude 整合，自架隱私性 | 本地部署愛好者 | ⏸ Pending |
+| **Twitter/X** | Demo 影片 + MCP 功能截圖 | 擴散效果 | ⏸ Pending |
+| **awesome-mcp-servers** | 提交 PR 加入清單 | 長期曝光，MCP 生態系入口 | ⏸ Pending |
 
-```
-Show HN: AI News Radar – self-hosted multi-source AI news aggregator with MCP server
-
-Built a self-hosted pipeline that continuously fetches AI news from HN,
-Reddit, GitHub, and ArXiv, scores relevance locally (no LLM API needed),
-and exposes an MCP server so Claude can query your personal AI knowledge
-base directly in conversation.
-
-Key differentiator: it's not a one-time web search — it builds a persistent,
-searchable local knowledge base that grows over time.
-
-Tech: FastAPI + SQLite/PostgreSQL + Next.js + APScheduler
-Zero required paid APIs for core functionality.
-```
-
-### 4.3 發佈時程
+### 4.3 發佈時程（已更新）
 
 ```
-Week 1（4/9 - 4/13）  內容清理 + README 優化
-Week 2（4/14 - 4/18） CI 設定 + Screenshot / Demo 製作
-Week 3（4/21）        正式推送 GitHub Public + 同步發佈各平台
-Week 4+               觀察社群反饋，根據 issue 規劃 v2 優先級
+Week 1（4/9）   ✅ Phase 1–4 全部完成，repo 已公開
+                   github.com/pursky7468/ai-news-radar
+Week 2+         ⏸ Demo GIF 製作（Pending）
+                ⏸ 社群推廣（Pending，取消）
 ```
 
 ---
