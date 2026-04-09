@@ -1,0 +1,57 @@
+name: Feature Request
+description: Suggest a new feature or improvement
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a feature! Please describe your idea below.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Feature Description
+      description: A clear description of the feature you'd like to see.
+      placeholder: Describe the feature...
+    validations:
+      required: true
+
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Use Case
+      description: Describe the scenario where this feature would be useful.
+      placeholder: As a user who... I want to... so that...
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: Why Is This Useful?
+      description: Explain why this would benefit users of AI News Radar.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of the project does this relate to?
+      options:
+        - Backend / API
+        - Dashboard (Frontend)
+        - MCP Server
+        - Data Sources (HN / Reddit / GitHub / ArXiv)
+        - Briefing Generator
+        - CI / DevOps
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any mockups, links, or references that help explain the idea.
