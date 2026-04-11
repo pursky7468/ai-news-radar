@@ -54,6 +54,13 @@ The `search_ai_news` MCP tool SHALL be extended with optional `date_from` and `d
 
 ### Requirement: DB Migration 006 — FTS5 index
 
+> **實作說明（2026-04-12 確認）**：`posts` 表沒有獨立的 `title` 和 `summary` 欄位。
+> Migration 006 使用有意識的 workaround：
+> - `title` → `substr(content, 1, 100)`（content 前 100 字元）
+> - `summary` → `COALESCE(summary_zh, '')`（中文摘要，若無則為空字串）
+>
+> 這是設計上的選擇，不是 bug。FTS5 運作正常，但搜尋品質受限於 content 前 100 字元的代表性。
+
 Migration 006 SHALL be applied before any feature flag is enabled. It SHALL be safe to apply to an existing database with data.
 
 #### Scenario: Migration on existing database

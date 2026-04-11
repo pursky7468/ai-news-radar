@@ -1,3 +1,11 @@
+> ⚠️ **[FROZEN — 不實作]**
+> X / Twitter API v2 Basic tier 費用為 $100+/月。
+> `design.md` 已明確將 X/Twitter 整合列為 Non-Goal（v1 & v2）。
+> 本 spec 保留作為設計思考紀錄，但不進入任何實作計劃。
+> 決策日期：2026-04-12
+
+---
+
 ## ADDED Requirements
 
 ### Requirement: Fetch posts by keyword query

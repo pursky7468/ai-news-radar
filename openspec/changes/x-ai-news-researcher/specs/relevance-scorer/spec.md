@@ -1,7 +1,11 @@
 ## ADDED Requirements
 
-### Requirement: Score posts using TF-IDF and keyword weights
-The system SHALL score each post locally using a tiered keyword weight dictionary. The keyword dictionary SHALL have two tiers: high-weight terms (weight 3, e.g., `ai agent`, `agent skill`, `multi-agent`, `MCP`, `RAG`, `tool use`, `LangChain`, `AutoGen`) and standard-weight terms (weight 1, e.g., `AI`, `LLM`, `model`, `GPT`, `Claude`, `OpenAI`). TF-IDF is used to down-weight terms that appear extremely frequently across the corpus (IDF component), preventing common words from inflating scores. The final score SHALL be computed as the sum of `(term_weight × idf_factor)` for each matched term, normalized to a 0–10 scale and clamped. No external API SHALL be called during scoring.
+### Requirement: Score posts using keyword weight scoring
+The system SHALL score each post locally using a tiered keyword weight dictionary. The keyword dictionary SHALL have two tiers: high-weight terms (weight 3, e.g., `ai agent`, `agent skill`, `multi-agent`, `MCP`, `RAG`, `tool use`, `LangChain`, `AutoGen`) and standard-weight terms (weight 1, e.g., `AI`, `LLM`, `model`, `GPT`, `Claude`, `OpenAI`). No external API SHALL be called during scoring.
+
+> **實作說明（2026-04-12 確認）**：實際實作為純關鍵字權重計分，未實作 IDF 部分。
+> 完整評分公式：`score = min(10, Σ(命中詞 × 權重) + min(社群票數 / 100, 3.0))`
+> 正規化方式：截斷至 10（非線性縮放）。社群投票加分上限為 3 分。
 
 #### Scenario: Post with high-weight term matches
 - **WHEN** a post contains terms like `ai agent` and `tool use`

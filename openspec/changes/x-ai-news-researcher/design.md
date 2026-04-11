@@ -61,7 +61,11 @@ Stakeholders: internal AI research team consuming the news feed.
 
 ### 2. Relevance Scoring: TF-IDF + keyword weight model
 
-**Decision**: Score each post locally using a weighted keyword scoring approach combined with TF-IDF term weighting. Maintain a tiered keyword dictionary: high-weight terms (e.g., `ai agent`, `agent skill`, `MCP`, `RAG`, `LLM`, `multi-agent`) score higher than generic terms (e.g., `AI`, `model`). The final score (0–10) is derived from the sum of matched term weights, normalized and clamped. Assign category labels based on which term groups fire. Cache scores by post ID to avoid re-scoring.
+**Decision**: Score each post locally using a keyword weight scoring approach. Maintain a tiered keyword dictionary: high-weight terms (e.g., `ai agent`, `agent skill`, `MCP`, `RAG`, `LLM`, `multi-agent`) score higher than generic terms (e.g., `AI`, `model`). The final score (0–10) is derived from the sum of matched term weights, clamped at 10. Assign category labels based on which term groups fire. Cache scores by post ID to avoid re-scoring.
+
+> **實作說明（2026-04-12 確認）**：IDF 部分未實作。實際公式為：
+> `score = min(10, Σ(命中詞 × 權重) + min(社群票數 / 100, 3.0))`
+> 設計文件中所有「TF-IDF」描述均指此公式，非標準 TF-IDF 演算法。
 
 **Rationale**: No external API dependency, zero cost, runs in-process with sub-millisecond latency per post. Can be improved iteratively by tuning keyword weights without a model retraining cycle.
 
