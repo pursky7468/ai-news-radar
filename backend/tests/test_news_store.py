@@ -178,6 +178,26 @@ def test_update_last_fetch_at(news_store: NewsStore):
     assert result == ts
 
 
+def test_get_last_digest_at_returns_none_before_first_digest(news_store: NewsStore):
+    result = news_store.get_last_digest_at()
+    assert result is None
+
+
+def test_set_and_get_last_digest_at(news_store: NewsStore):
+    ts = datetime(2026, 4, 12, 8, 0, tzinfo=timezone.utc)
+    news_store.set_last_digest_at(ts)
+    result = news_store.get_last_digest_at()
+    assert result == ts
+
+
+def test_set_last_digest_at_overwrites(news_store: NewsStore):
+    ts1 = datetime(2026, 4, 12, 8, 0, tzinfo=timezone.utc)
+    ts2 = datetime(2026, 4, 12, 9, 0, tzinfo=timezone.utc)
+    news_store.set_last_digest_at(ts1)
+    news_store.set_last_digest_at(ts2)
+    assert news_store.get_last_digest_at() == ts2
+
+
 # ---------------------------------------------------------------------------
 # Lookup by ID
 # ---------------------------------------------------------------------------

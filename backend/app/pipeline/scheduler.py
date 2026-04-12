@@ -115,15 +115,39 @@ def _make_fetch_job(settings, session_factory) -> callable:
     return run
 
 
+_DIGEST_COOLDOWN_MINUTES = 30
+
+
 def _make_digest_job(settings, session_factory) -> callable:
-    """Return a callable that builds a fresh session + notifier per invocation."""
+    """Return a callable that builds a fresh session + notifier per invocation.
+
+    Includes a 30-minute cooldown guard: if the last digest ran less than
+    _DIGEST_COOLDOWN_MINUTES ago, the job is skipped. This prevents crash-loop
+    scenarios where APScheduler fires a missed job immediately on restart.
+    """
     from app.notifier.digest_notifier import DigestNotifier
     from app.store.news_store import NewsStore
 
     def run():
+        from datetime import datetime, timedelta, timezone
         db = session_factory()
         try:
             store = NewsStore(session=db)
+
+            # Crash loop cooldown: skip if last digest was recent
+            last_digest = store.get_last_digest_at()
+            if last_digest is not None:
+                now = datetime.now(timezone.utc)
+                if last_digest.tzinfo is None:
+                    last_digest = last_digest.replace(tzinfo=timezone.utc)
+                elapsed = (now - last_digest).total_seconds() / 60
+                if elapsed < _DIGEST_COOLDOWN_MINUTES:
+                    logger.info(
+                        "Digest cooldown active (%.1f min since last run, threshold %d min) — skipping.",
+                        elapsed, _DIGEST_COOLDOWN_MINUTES,
+                    )
+                    return
+
             notifier = DigestNotifier(
                 news_store=store,
                 smtp_config=settings.smtp_config,
@@ -138,6 +162,8 @@ def _make_digest_job(settings, session_factory) -> callable:
                 highlight_scorer_enabled=settings.FEATURES.get("highlight_scorer", False),
             )
             notifier.run()
+            store.set_last_digest_at(datetime.now(timezone.utc))
+            store.commit()
         except Exception:
             db.rollback()
             raise

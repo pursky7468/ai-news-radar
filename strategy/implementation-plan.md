@@ -82,35 +82,40 @@
 
 ### Phase 3：v2 Bug 修復
 
-**狀態**：⬜ 待執行
+**狀態**：✅ 完成
+**完成日期**：2026-04-12
+**Commit**：`fix: digest async 202, per-channel sent flags (migration 008), crash loop cooldown`
 **目標**：修復 digest 超時、重複發 email、crash loop 三個既有 bug
 
 #### Checklist
 
 **Digest 非同步（`backend/app/api/routes/digest.py`）**
-- [ ] `POST /api/digest/trigger` 改為非同步：
+- [x] `POST /api/digest/trigger` 改為非同步：
   - 立即回傳 `202 Accepted` + `{"job_id": "<uuid>", "status": "queued"}`
   - 實際 digest 在 background task 執行
-- [ ] 新增 `GET /api/digest/jobs/{job_id}` 查詢狀態（可選：簡單用 in-memory dict 記錄）
-- [ ] 更新對應測試
+- [x] 新增 `GET /api/digest/jobs/{job_id}` 查詢狀態（in-memory dict 記錄）
+- [x] 更新對應測試
 
 **Email 各 channel 獨立 flag**
-- [ ] 新增 Alembic migration 008：
+- [x] 新增 Alembic migration 008：
   - `posts` 表新增 `email_sent BOOLEAN DEFAULT FALSE`
   - `posts` 表新增 `webhook_sent BOOLEAN DEFAULT FALSE`
   - 將現有 `digest_sent=True` 的資料遷移：`email_sent=True, webhook_sent=True`
-  - 保留 `digest_sent` 欄位（向後相容），但標記為 deprecated
-- [ ] `backend/app/notifier/digest_notifier.py`：
+  - 保留 `digest_sent` 欄位（向後相容），標記為 deprecated
+- [x] `backend/app/notifier/digest_notifier.py`：
   - email 成功 → 只標記 `email_sent=True`
   - webhook 成功 → 只標記 `webhook_sent=True`
-  - 查詢未發送的 posts 時，依各自 flag 獨立過濾
-- [ ] 更新對應測試
+  - `digest_sent=True` 仍在所有 channel 成功時標記（向後相容）
+- [x] 更新對應測試（含 per-channel flag 測試）
 
 **Crash Loop Cooldown（`backend/app/pipeline/scheduler.py`）**
-- [ ] 啟動時 digest trigger 邏輯加 30 分鐘 cooldown：
-  - 讀取 `system_state` 的 `last_digest_at`（需新增此欄位或用現有 key-value 表）
-  - 若距離上次 digest < 30 分鐘，跳過啟動觸發
-- [ ] 更新對應測試
+- [x] `_make_digest_job` 加 30 分鐘 cooldown：
+  - 讀取 `system_state` 的 `last_digest_at`
+  - 若距離上次 digest < 30 分鐘，跳過本次執行
+  - digest 完成後更新 `last_digest_at`
+- [x] `news_store.py` 新增 `get_last_digest_at()` / `set_last_digest_at()`
+- [x] `test_scheduler_registers_two_jobs` 修正 API signature 不符問題
+- [x] 更新對應測試
 
 **Commit message**：`fix: digest async 202, per-channel sent flags (migration 008), crash loop cooldown`
 
@@ -255,7 +260,8 @@
 |-------|------|------|---------|--------|
 | 1 | 文件修正 | ✅ 完成 | 2026-04-12 | `docs: align spec with actual implementation` |
 | 2 | Briefing 品質修復 | ✅ 完成 | 2026-04-12 | `feat: fix briefing quality — language validation, 4-dimension structure, highlight score` |
-| 3 | v2 Bug 修復 | ⬜ 待執行 | — | — |
+| 3 | v2 Bug 修復 | ✅ 完成 | 2026-04-12 | `fix: digest async 202, per-channel sent flags (migration 008), crash loop cooldown` |
+| 3 | v2 Bug 修復 | ✅ 完成 | 2026-04-12 | `fix: digest async 202, per-channel sent flags (migration 008), crash loop cooldown` |
 | 4 | 關鍵字擴充與新 Reddit 來源 | ⬜ 待執行 | — | — |
 | 觀察期 | 評估 threshold 與 Group 2 優先序 | ⬜ 待執行 | — | — |
 | 5 | RSS Fetcher | ⬜ 待執行 | — | — |

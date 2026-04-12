@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.models import Bookmark, Post, Report, SystemState
 
 _LAST_FETCH_KEY = "last_fetch_at"
+_LAST_DIGEST_KEY = "last_digest_at"
 
 
 class NewsStore:
@@ -85,9 +86,23 @@ class NewsStore:
         )
 
     def mark_digest_sent(self, post_ids: list[int]) -> None:
-        """Mark the given post IDs as digest_sent=True."""
+        """Mark the given post IDs as digest_sent=True (deprecated — use channel-specific methods)."""
         self._session.query(Post).filter(Post.id.in_(post_ids)).update(
             {"digest_sent": True}, synchronize_session="fetch"
+        )
+        self._session.flush()
+
+    def mark_email_sent(self, post_ids: list[int]) -> None:
+        """Mark the given post IDs as email_sent=True."""
+        self._session.query(Post).filter(Post.id.in_(post_ids)).update(
+            {"email_sent": True}, synchronize_session="fetch"
+        )
+        self._session.flush()
+
+    def mark_webhook_sent(self, post_ids: list[int]) -> None:
+        """Mark the given post IDs as webhook_sent=True."""
+        self._session.query(Post).filter(Post.id.in_(post_ids)).update(
+            {"webhook_sent": True}, synchronize_session="fetch"
         )
         self._session.flush()
 
@@ -109,6 +124,29 @@ class NewsStore:
             self._session.add(
                 SystemState(
                     key=_LAST_FETCH_KEY,
+                    value=timestamp.isoformat(),
+                    updated_at=datetime.now(timezone.utc),
+                )
+            )
+        self._session.flush()
+
+    def get_last_digest_at(self) -> Optional[datetime]:
+        """Return timestamp of the most recent completed digest, or None."""
+        row = self._session.get(SystemState, _LAST_DIGEST_KEY)
+        if row is None or row.value is None:
+            return None
+        return datetime.fromisoformat(row.value)
+
+    def set_last_digest_at(self, timestamp: datetime) -> None:
+        """Record the most recent completed digest timestamp."""
+        existing = self._session.get(SystemState, _LAST_DIGEST_KEY)
+        if existing:
+            existing.value = timestamp.isoformat()
+            existing.updated_at = datetime.now(timezone.utc)
+        else:
+            self._session.add(
+                SystemState(
+                    key=_LAST_DIGEST_KEY,
                     value=timestamp.isoformat(),
                     updated_at=datetime.now(timezone.utc),
                 )

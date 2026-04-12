@@ -391,3 +391,77 @@ def test_run_summarization_uses_reference_time_as_date_string(news_store):
 
     assert len(captured_date) == 1
     assert captured_date[0] == "2026-01-15"
+
+
+# ---------------------------------------------------------------------------
+# Per-channel sent flags (Phase 3)
+# ---------------------------------------------------------------------------
+
+def test_run_marks_email_sent_on_email_success(news_store):
+    _insert_relevant_post(news_store, "email_ok_p1")
+    smtp_config = {
+        "host": "smtp.example.com", "port": 587,
+        "user": "u", "password": "p",
+        "from": "f@e.com", "to": "t@e.com",
+    }
+    notifier = DigestNotifier(
+        news_store=news_store,
+        smtp_config=smtp_config,
+        webhook_url=None,
+    )
+    with patch("app.notifier.digest_notifier.smtplib") as mock_smtp:
+        mock_smtp.SMTP.return_value.__enter__.return_value = MagicMock()
+        notifier.run()
+
+    posts = news_store.query_posts()
+    assert posts[0].email_sent is True
+
+
+def test_run_does_not_mark_email_sent_on_failure(news_store):
+    _insert_relevant_post(news_store, "email_fail_p1")
+    smtp_config = {
+        "host": "smtp.fail.com", "port": 587,
+        "user": "u", "password": "p",
+        "from": "f@e.com", "to": "t@e.com",
+    }
+    notifier = DigestNotifier(
+        news_store=news_store,
+        smtp_config=smtp_config,
+        webhook_url=None,
+    )
+    with patch("app.notifier.digest_notifier.smtplib") as mock_smtp:
+        mock_smtp.SMTP.return_value.__enter__.side_effect = Exception("SMTP error")
+        notifier.run()
+
+    posts = news_store.query_posts()
+    assert posts[0].email_sent is False
+
+
+def test_run_marks_webhook_sent_on_webhook_success(news_store):
+    _insert_relevant_post(news_store, "webhook_ok_p1")
+    notifier = DigestNotifier(
+        news_store=news_store,
+        smtp_config=None,
+        webhook_url="https://hooks.example.com/ok",
+    )
+    with patch("app.notifier.digest_notifier.httpx") as mock_httpx:
+        mock_httpx.post.return_value = MagicMock(status_code=200)
+        notifier.run()
+
+    posts = news_store.query_posts()
+    assert posts[0].webhook_sent is True
+
+
+def test_run_does_not_mark_webhook_sent_on_failure(news_store):
+    _insert_relevant_post(news_store, "webhook_fail_p1")
+    notifier = DigestNotifier(
+        news_store=news_store,
+        smtp_config=None,
+        webhook_url="https://hooks.example.com/fail",
+    )
+    with patch("app.notifier.digest_notifier.httpx") as mock_httpx:
+        mock_httpx.post.side_effect = Exception("connection error")
+        notifier.run()
+
+    posts = news_store.query_posts()
+    assert posts[0].webhook_sent is False

@@ -76,8 +76,8 @@ def test_scheduler_registers_two_jobs():
     sched = build_scheduler(
         fetch_interval_minutes=15,
         digest_cron="0 8 * * *",
-        fetch_pipeline=MagicMock(),
-        digest_notifier=MagicMock(),
+        fetch_job_fn=MagicMock(),
+        digest_job_fn=MagicMock(),
     )
     jobs = sched.get_jobs()
     assert len(jobs) == 2

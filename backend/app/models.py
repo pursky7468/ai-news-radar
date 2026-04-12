@@ -39,7 +39,9 @@ class Post(Base):
     points = Column(Integer, nullable=True)
     is_relevant = Column(Boolean, nullable=False, default=False)
     labels = Column(JSON, nullable=False, default=list)
-    digest_sent = Column(Boolean, nullable=False, default=False)
+    digest_sent = Column(Boolean, nullable=False, default=False)  # deprecated: use email_sent + webhook_sent
+    email_sent = Column(Boolean, nullable=False, default=False)
+    webhook_sent = Column(Boolean, nullable=False, default=False)
     summary_zh = Column(Text, nullable=True)
 
     bookmarks = relationship("Bookmark", back_populates="post", cascade="all, delete-orphan")

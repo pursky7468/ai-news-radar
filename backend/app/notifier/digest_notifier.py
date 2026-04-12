@@ -64,10 +64,18 @@ class DigestNotifier:
         if report_markdown and self._groq_api_key and self._briefings_output_dir:
             self._run_briefing(report_markdown, reference_time=reference_time, posts=posts)
 
+        post_ids = [p.id for p in posts]
+
         email_ok = self.send_email(posts, report_markdown) if self._smtp else False
         webhook_ok = self.send_webhook(posts, report_markdown) if self._webhook_url else False
 
-        # Mark sent only when ALL configured channels succeed
+        # Mark per-channel flags independently
+        if self._smtp and email_ok:
+            self._store.mark_email_sent(post_ids)
+        if self._webhook_url and webhook_ok:
+            self._store.mark_webhook_sent(post_ids)
+
+        # Mark digest_sent=True only when ALL configured channels succeed (backward compat)
         configured_channels = []
         if self._smtp:
             configured_channels.append(email_ok)
@@ -76,7 +84,7 @@ class DigestNotifier:
 
         all_ok = all(configured_channels) if configured_channels else True
         if all_ok and posts:
-            self._store.mark_digest_sent([p.id for p in posts])
+            self._store.mark_digest_sent(post_ids)
 
         self._store.commit()
 

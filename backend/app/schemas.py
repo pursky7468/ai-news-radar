@@ -65,6 +65,17 @@ class DigestTriggerResult(BaseModel):
     webhook_sent: bool
 
 
+class DigestJobResponse(BaseModel):
+    job_id: str
+    status: str  # "queued" | "running" | "done" | "failed"
+
+
+class DigestJobStatus(BaseModel):
+    job_id: str
+    status: str  # "queued" | "running" | "done" | "failed"
+    result: Optional[DigestTriggerResult] = None
+
+
 class HealthResponse(BaseModel):
     status: str  # "ok" | "degraded"
     db: str  # "connected" | "disconnected"

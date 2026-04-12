@@ -206,26 +206,47 @@ def test_news_get_by_id_not_found(client, auth_headers):
 # Digest trigger
 # ---------------------------------------------------------------------------
 
-def test_digest_trigger_sends(client, auth_headers, db_session):
+def test_digest_trigger_returns_202_with_job_id(client, auth_headers, db_session):
     _insert_post(db_session, "dg1", is_relevant=True)
     with patch("app.api.routes.digest.DigestNotifier") as MockNotifier:
         mock_instance = MagicMock()
         mock_instance.run.return_value = {"posts_included": 1, "email_sent": True, "webhook_sent": False}
         MockNotifier.return_value = mock_instance
         resp = client.post("/api/digest/trigger", headers=auth_headers)
-    assert resp.status_code == 200
+    assert resp.status_code == 202
     data = resp.json()
-    assert data["posts_included"] == 1
+    assert "job_id" in data
+    assert data["status"] == "queued"
 
 
-def test_digest_trigger_no_posts(client, auth_headers):
+def test_digest_trigger_no_posts_returns_202(client, auth_headers):
     with patch("app.api.routes.digest.DigestNotifier") as MockNotifier:
         mock_instance = MagicMock()
         mock_instance.run.return_value = {"posts_included": 0, "email_sent": False, "webhook_sent": False}
         MockNotifier.return_value = mock_instance
         resp = client.post("/api/digest/trigger", headers=auth_headers)
-    assert resp.status_code == 200
-    assert resp.json()["posts_included"] == 0
+    assert resp.status_code == 202
+    assert "job_id" in resp.json()
+
+
+def test_digest_job_status_not_found(client, auth_headers):
+    resp = client.get("/api/digest/jobs/nonexistent-job-id", headers=auth_headers)
+    assert resp.status_code == 404
+
+
+def test_digest_job_status_found(client, auth_headers):
+    with patch("app.api.routes.digest.DigestNotifier") as MockNotifier:
+        mock_instance = MagicMock()
+        mock_instance.run.return_value = {"posts_included": 0, "email_sent": False, "webhook_sent": False}
+        MockNotifier.return_value = mock_instance
+        trigger_resp = client.post("/api/digest/trigger", headers=auth_headers)
+    job_id = trigger_resp.json()["job_id"]
+    # With TestClient, background tasks run synchronously — job should be done
+    status_resp = client.get(f"/api/digest/jobs/{job_id}", headers=auth_headers)
+    assert status_resp.status_code == 200
+    data = status_resp.json()
+    assert data["job_id"] == job_id
+    assert data["status"] in ("queued", "running", "done", "failed")
 
 
 # ---------------------------------------------------------------------------
