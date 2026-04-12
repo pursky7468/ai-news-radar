@@ -24,11 +24,11 @@ Most AI news tools are **one-time searches** — they query the web, return resu
 
 - **Backend**: FastAPI + APScheduler (Python 3.11)
 - **Sources**: Hacker News (Algolia API), Reddit (public JSON), GitHub (REST API), ArXiv (Atom API)
-- **Scoring**: TF-IDF + keyword weight model (no external API required)
+- **Scoring**: Keyword weight scoring + semantic embedding (no external API required)
 - **Storage**: PostgreSQL (production) / SQLite (dev)
 - **Dashboard**: Next.js 14 (TypeScript + Tailwind CSS)
-- **MCP Server**: 5 tools for direct Claude integration
-- **Delivery**: Email (SMTP) + webhook digest
+- **MCP Server**: 7 tools for direct Claude integration
+- **Delivery**: Email (SMTP) + webhook digest (per-channel tracking)
 
 ---
 
@@ -40,11 +40,13 @@ AI News Radar ships with a built-in MCP Server. Once configured, Claude can quer
 
 | Tool | Signature | Description |
 |------|-----------|-------------|
-| `search_ai_news` | `(query, days=0, limit=10)` | Full-text search across all stored articles |
+| `search_ai_news` | `(query, days=0, limit=10)` | Hybrid search (FTS5 + semantic vector) across all stored articles |
 | `get_daily_report` | `(date="today")` | Retrieve the daily briefing for a given date |
 | `get_posts_by_category` | `(category, days=7, limit=10)` | Fetch posts by category (ai-agent, ai-tool, ai-model) |
 | `get_trending_tools` | `(days=7, limit=10)` | Top trending AI tools by mention count |
 | `get_weekly_summary` | `(week_offset=0)` | Weekly trend summary (0=this week, -1=last week) |
+| `list_techniques` | `()` | List all technique groups defined in keywords.yaml |
+| `get_posts_by_technique` | `(technique, days=7, limit=10)` | Semantic search by technique group (e.g. ai_collaboration_techniques) |
 
 ### Setup
 
@@ -256,7 +258,7 @@ source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pytest
 ```
 
-預期結果：84 tests passed，coverage ≥ 80%
+預期結果：220 tests passed，coverage ≥ 80%
 
 ### Frontend 單元測試
 
@@ -312,6 +314,14 @@ npx playwright test e2e/dashboard.spec.js --reporter=line
 | `GEMINI_API_KEY` | 否 | Google Gemini API Key（中文日報，選填） |
 | `GROQ_API_KEY` | 否 | Groq API Key（優先於 Gemini，選填） |
 | `USER_CONTEXT` | 否 | 個人化 context，注入至 briefing 提示詞（例：`I am building a RAG pipeline`） |
+| `FEATURE_FTS_SEARCH` | 否 | 啟用 SQLite FTS5 全文搜尋（預設 false） |
+| `FEATURE_HIGHLIGHT_SCORER` | 否 | briefing 頂部顯示 Top 3 精選（預設 false） |
+| `FEATURE_WEEKLY_BRIEFING` | 否 | 每週一自動生成週報（預設 false） |
+| `FEATURE_BOOKMARKS` | 否 | 啟用書籤 API（預設 false） |
+| `FEATURE_ARXIV_FETCHER` | 否 | 啟用 ArXiv 論文 fetcher（預設 false） |
+| `FEATURE_EMBEDDINGS` | 否 | 啟用語意 embedding + Hybrid Search（預設 false，需安裝 sentence-transformers） |
+| `EMBEDDING_MODEL` | 否 | Embedding 模型名稱（預設 `sentence-transformers/all-MiniLM-L6-v2`） |
+| `HF_API_TOKEN` | 否 | HuggingFace API Token，設定後改用 HF Inference API 而非本機推理 |
 
 ---
 
@@ -328,7 +338,8 @@ npx playwright test e2e/dashboard.spec.js --reporter=line
 | GET | `/api/health` | 健康檢查（無需 API Key） |
 | GET | `/api/news` | 列出 posts（支援 label/score/keyword/source/since 過濾） |
 | GET | `/api/news/{id}` | 取得單筆 post |
-| POST | `/api/digest/trigger` | 手動觸發 digest |
+| POST | `/api/digest/trigger` | 非同步觸發 digest（回傳 202 + job_id） |
+| GET | `/api/digest/jobs/{job_id}` | 查詢 digest 執行狀態 |
 | GET | `/api/bookmarks` | 列出收藏 |
 | POST | `/api/bookmarks` | 新增收藏 |
 | DELETE | `/api/bookmarks/{id}` | 刪除收藏 |
