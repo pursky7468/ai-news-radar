@@ -13,8 +13,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 # Source weights (raw, before multiplying by w_source)
+# arxiv excluded: daily briefing only uses non-arxiv posts (arxiv is weekly-only)
 _SOURCE_WEIGHTS: dict[str, float] = {
-    "arxiv": 4.0,
     "github": 3.0,
     "hackernews": 2.0,
     "reddit": 1.0,

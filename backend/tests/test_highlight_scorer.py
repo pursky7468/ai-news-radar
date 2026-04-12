@@ -40,10 +40,11 @@ def test_score_hackernews_recent():
     assert abs(score - 4.8) < 0.001
 
 
-def test_score_arxiv_higher_than_reddit():
+def test_score_arxiv_same_as_unknown_source():
+    # arxiv removed from SOURCE_WEIGHTS — falls back to 1.0 (same as reddit/unknown)
     arxiv = _make_post(source="arxiv", score=7.0, hours_old=5)
     reddit = _make_post(source="reddit", score=7.0, hours_old=5)
-    assert compute_highlight_score(arxiv, _NOW) > compute_highlight_score(reddit, _NOW)
+    assert compute_highlight_score(arxiv, _NOW) == compute_highlight_score(reddit, _NOW)
 
 
 def test_score_recency_decay_under_48h():

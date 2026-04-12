@@ -138,8 +138,9 @@ class DigestNotifier:
             highlight_posts = None
             if self._highlight_scorer_enabled and posts:
                 from app.briefing.highlight_scorer import get_top_highlights
+                non_arxiv = [p for p in posts if (p.source or "") != "arxiv"]
                 highlight_posts = get_top_highlights(
-                    posts, n=3, reference_time=reference_time, weights=self._highlight_weights
+                    non_arxiv, n=3, reference_time=reference_time, weights=self._highlight_weights
                 )
 
             gen = BriefingGenerator(

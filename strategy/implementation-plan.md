@@ -45,34 +45,36 @@
 
 ### Phase 2：Briefing 品質修復
 
-**狀態**：⬜ 待執行
+**狀態**：✅ 完成
+**完成日期**：2026-04-12
+**Commit**：`feat: fix briefing quality — language validation, 4-dimension structure, highlight score`
 **目標**：修復亂碼問題、重設 briefing 結構、修正 highlight score ArXiv 偏權
 
 #### Checklist
 
 **語言驗證（`backend/app/briefing/briefing_generator.py`）**
-- [ ] 新增 `_validate_language(text: str) -> bool` 函式，使用 Unicode block 判斷
+- [x] 新增 `_validate_language(text: str) -> bool` 函式，使用 Unicode block 判斷
   - 允許：CJK（U+4E00–U+9FFF）、Basic Latin（U+0000–U+007F）、CJK 標點
   - 觸發：其他 block（越南文等拉丁擴充、阿拉伯文、泰文等）
-- [ ] `_call_groq()` 後執行語言驗證
+- [x] `_call_groq()` 後執行語言驗證
   - 觸發 → 用強化 prompt 重試一次
   - 重試仍失敗 → 在輸出頂部加 `⚠️ [語言品質警告]`，寫入 warning log
-- [ ] 新增對應單元測試（`backend/tests/test_briefing_generator.py`）
+- [x] 新增對應單元測試（`backend/tests/test_briefing_generator.py`）
 
 **Briefing 結構（`backend/app/briefing/briefing_generator.py`）**
-- [ ] 修改 `_BRIEFING_PROMPT`：
-  - 新增 4 個維度的分區指示（技術模式與架構、實踐技巧與工具用法、開源動態）
+- [x] 修改 `_BRIEFING_PROMPT`：
+  - 新增 4 個維度的分區指示（技術模式與架構、實踐技巧與工具用法、開源動態、產業動態）
   - 加入「說明為什麼值得注意」的指示，不只轉述標題
   - 要求：某維度無內容時不顯示該區塊
-- [ ] `BriefingGenerator.generate()` 加 source filter：組裝 `report_content` 前排除 `source == 'arxiv'` 的文章
+- [x] `digest_notifier._run_briefing()` 計算 highlights 前排除 `source == 'arxiv'` 的文章（prompt 說明 daily 不含 arxiv）
 
 **Highlight Score（`backend/app/briefing/highlight_scorer.py`）**
-- [ ] 修改 `source_weight` 映射，移除 `arxiv`：
+- [x] 修改 `source_weight` 映射，移除 `arxiv`：
   ```python
   SOURCE_WEIGHTS = {"github": 3, "hackernews": 2, "reddit": 1}
   # arxiv 移除，每日 highlight 只在非 arxiv 文章中計算
   ```
-- [ ] 新增對應單元測試
+- [x] 新增對應單元測試
 
 **Commit message**：`feat: fix briefing quality — language validation, 4-dimension structure, highlight score`
 
@@ -251,8 +253,8 @@
 
 | Phase | 說明 | 狀態 | 完成日期 | Commit |
 |-------|------|------|---------|--------|
-| 1 | 文件修正 | ⬜ 待執行 | — | — |
-| 2 | Briefing 品質修復 | ⬜ 待執行 | — | — |
+| 1 | 文件修正 | ✅ 完成 | 2026-04-12 | `docs: align spec with actual implementation` |
+| 2 | Briefing 品質修復 | ✅ 完成 | 2026-04-12 | `feat: fix briefing quality — language validation, 4-dimension structure, highlight score` |
 | 3 | v2 Bug 修復 | ⬜ 待執行 | — | — |
 | 4 | 關鍵字擴充與新 Reddit 來源 | ⬜ 待執行 | — | — |
 | 觀察期 | 評估 threshold 與 Group 2 優先序 | ⬜ 待執行 | — | — |
