@@ -67,6 +67,19 @@ def _store() -> NewsStore:
 mcp = FastMCP("ai-news-researcher")
 
 
+def _get_embedding_service():
+    """Return a singleton EmbeddingService if embeddings feature is enabled."""
+    if not settings.FEATURES.get("embeddings"):
+        return None
+    from app.embeddings.embedding_service import EmbeddingService
+    svc = EmbeddingService(
+        model_name=settings.embedding_model,
+        use_local=not bool(settings.hf_api_token),
+        hf_api_token=settings.hf_api_token,
+    )
+    return svc
+
+
 @mcp.tool()
 def search_ai_news(
     query: str,
@@ -76,10 +89,13 @@ def search_ai_news(
     date_to: str | None = None,
 ) -> str:
     """
-    Search AI news posts by keyword.
+    Search AI news posts by keyword and semantic similarity (hybrid search).
+
+    When embeddings are enabled, results combine FTS5 keyword matching with
+    vector similarity for better recall of conceptually related content.
 
     Args:
-        query:     Search keyword (e.g. "MCP", "streaming LLM", "AutoGen")
+        query:     Search query (e.g. "agent memory management", "streaming LLM")
         days:      Only return posts from the last N days. 0 = all time (default).
         limit:     Maximum number of posts to return (default 10, max 50).
         date_from: Optional start date YYYY-MM-DD (inclusive).
@@ -109,16 +125,34 @@ def search_ai_news(
             return f"Invalid date_to: '{date_to}'. Use YYYY-MM-DD."
 
     store = _store()
-    posts = store.query_posts(
-        keyword=query,
-        since=since,
-        date_from=df,
-        date_to=dt,
-        fts_enabled=settings.FEATURES["fts_search"],
-        is_relevant=True,
-        sort="score_desc",
-        per_page=limit,
-    )
+
+    # Use hybrid search when embeddings are available
+    emb_service = _get_embedding_service()
+    if emb_service and not (date_from or date_to):
+        try:
+            from app.embeddings.vector_search import hybrid_search
+            posts = hybrid_search(
+                query=query,
+                embedding_service=emb_service,
+                store=store,
+                top_k=limit,
+                since=since,
+                is_relevant=True,
+            )
+        except Exception:
+            posts = []
+        # Fall back to keyword search if hybrid fails
+        if not posts:
+            posts = store.query_posts(
+                keyword=query, since=since, fts_enabled=settings.FEATURES["fts_search"],
+                is_relevant=True, sort="score_desc", per_page=limit,
+            )
+    else:
+        posts = store.query_posts(
+            keyword=query, since=since, date_from=df, date_to=dt,
+            fts_enabled=settings.FEATURES["fts_search"],
+            is_relevant=True, sort="score_desc", per_page=limit,
+        )
 
     if not posts:
         return f"No posts found for query: **{query}**"
@@ -436,6 +470,108 @@ def get_weekly_summary(week_offset: int = 0) -> str:
         f"週報尚未生成（{iso_year} 第 {iso_week} 週）。"
         f"請執行 generate_weekly_briefing.py 或等待本週一排程執行。"
     )
+
+
+@mcp.tool()
+def list_techniques() -> str:
+    """
+    List all available AI technique groups defined in the keyword configuration.
+
+    Returns:
+        Markdown list of technique group names usable with get_posts_by_technique.
+    """
+    import yaml
+
+    keywords_path = _BACKEND_DIR / "keywords.yaml"
+    if not keywords_path.exists():
+        return "keywords.yaml not found."
+
+    with open(keywords_path, encoding="utf-8") as f:
+        config = yaml.safe_load(f)
+
+    groups = set()
+    for tier in ("high_weight", "standard_weight"):
+        for group in config.get(tier, {}):
+            groups.add(group)
+
+    if not groups:
+        return "No technique groups found in keywords.yaml."
+
+    lines = ["## Available Technique Groups\n"]
+    for g in sorted(groups):
+        lines.append(f"- `{g}`")
+    lines.append("\nUse `get_posts_by_technique(technique=<group_name>)` to query posts.")
+    return "\n".join(lines)
+
+
+@mcp.tool()
+def get_posts_by_technique(technique: str, days: int = 7, limit: int = 10) -> str:
+    """
+    Get recent posts matching a specific technique group label.
+
+    When embeddings are enabled, this performs a semantic search using the
+    technique name as query, capturing posts that match conceptually even
+    without exact keyword hits.
+
+    Args:
+        technique: Technique group name (use list_techniques() to see available groups).
+                   Also accepts label strings like "ai-technique", "ai-agent".
+        days:      Look back N days (default 7). Use 0 for all time.
+        limit:     Maximum posts to return (default 10, max 50).
+
+    Returns:
+        Markdown list of matching posts.
+    """
+    limit = min(limit, 50)
+    since = None
+    if days > 0:
+        since = datetime.now(timezone.utc) - timedelta(days=days)
+
+    store = _store()
+
+    # Try semantic search first when embeddings available
+    posts = []
+    emb_service = _get_embedding_service()
+    if emb_service:
+        try:
+            from app.embeddings.vector_search import hybrid_search
+            posts = hybrid_search(
+                query=technique.replace("_", " "),
+                embedding_service=emb_service,
+                store=store,
+                top_k=limit,
+                since=since,
+                is_relevant=True,
+            )
+        except Exception:
+            posts = []
+
+    # Fallback: label-based filter
+    if not posts:
+        # Map group name to label (e.g. "ai_collaboration_techniques" → "ai-technique")
+        label = technique.replace("_", "-")
+        posts = store.query_posts(
+            label=label,
+            since=since,
+            is_relevant=True,
+            sort="score_desc",
+            per_page=limit,
+        )
+
+    if not posts:
+        period = f"last {days} days" if days > 0 else "all time"
+        return f"No posts found for technique **{technique}** ({period})."
+
+    lines = [f"## Posts: {technique}\n"]
+    for p in posts:
+        date_str = p.posted_at.strftime("%Y-%m-%d") if p.posted_at else "unknown"
+        summary = p.summary_zh or p.content[:120]
+        lines.append(
+            f"### [{p.content[:80]}]({p.url})\n"
+            f"- **來源**: {p.source}  **日期**: {date_str}  **分數**: {p.relevance_score:.1f}\n"
+            f"- **摘要**: {summary}\n"
+        )
+    return "\n".join(lines)
 
 
 if __name__ == "__main__":

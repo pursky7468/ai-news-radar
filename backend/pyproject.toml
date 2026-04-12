@@ -23,6 +23,8 @@ dependencies = [
     "google-generativeai>=0.8.0",
     "groq>=1.0.0",
     "mcp>=1.0.0",
+    "sentence-transformers>=3.0.0",
+    "numpy>=1.26.0",
 ]
 
 [project.optional-dependencies]

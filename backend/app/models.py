@@ -7,6 +7,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    LargeBinary,
     String,
     Text,
     UniqueConstraint,
@@ -43,6 +44,7 @@ class Post(Base):
     email_sent = Column(Boolean, nullable=False, default=False)
     webhook_sent = Column(Boolean, nullable=False, default=False)
     summary_zh = Column(Text, nullable=True)
+    embedding = Column(LargeBinary, nullable=True)  # serialized float32 vector
 
     bookmarks = relationship("Bookmark", back_populates="post", cascade="all, delete-orphan")
 

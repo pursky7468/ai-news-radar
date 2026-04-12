@@ -180,41 +180,44 @@
 
 ---
 
-### Phase 6：Hybrid Search + Embedding Pipeline
+### Phase 6：Hybrid Search + Embedding Pipeline（擴充版）
 
-**狀態**：⬜ 待執行（等 Phase 5 完成）
-**目標**：MCP `search_ai_news` 升級為 Hybrid Search，提升 Claude Code 查詢相關性
+**狀態**：✅ 完成
+**完成日期**：2026-04-12
+**Commit**：`feat: hybrid search (FTS5 + embedding + RRF), briefing semantic augmentation, list_techniques MCP tool`
+**目標**：MCP `search_ai_news` 升級為 Hybrid Search，並用語意搜尋補足 briefing 的 ai-technique 內容缺口
 
 #### Checklist
 
 **Embedding Pipeline**
-- [ ] 新增 Alembic migration 009：`posts` 表新增 `embedding BLOB` 欄位
-- [ ] 實作 `EmbeddingService`：
-  - 使用 `sentence-transformers/all-MiniLM-L6-v2`
-  - Server 啟動時執行 warmup（預載模型）
-  - `embed(text: str) -> list[float]`
-  - Fallback：HF Inference API（依 env var 切換）
-- [ ] 新增非同步 embedding worker（`run_in_executor` 包裝 CPU-bound 呼叫）：
-  - 文章入庫後 enqueue embedding job
-  - 計算完成後更新 `posts.embedding`
-- [ ] 歷史資料補算 script（`backend/scripts/backfill_embeddings.py`）
+- [x] 新增 Alembic migration 009：`posts` 表新增 `embedding BLOB` 欄位
+- [x] 實作 `EmbeddingService`（`backend/app/embeddings/embedding_service.py`）：
+  - 使用 `sentence-transformers/all-MiniLM-L6-v2`（本機 CPU，22MB）
+  - Lazy load + warmup on scheduler start
+  - `embed(text: str) -> list[float]`，`embed_text_for_post(post)`
+  - Fallback：HF Inference API（`HF_API_TOKEN` env var）
+  - serialize/deserialize float32 binary blob
+- [x] `fetch_pipeline.py` 每次 fetch 後自動計算新文章 embedding
+- [x] Backfill script（`backend/scripts/backfill_embeddings.py`）
 
 **向量儲存**
-- [ ] SQLite：整合 `sqlite-vec`
-- [ ] PostgreSQL：整合 `pgvector`（依 `DATABASE_URL` 自動選擇）
+- [x] SQLite BLOB + Python-side cosine similarity（adequate for <50k posts）
+- 放棄 sqlite-vec / pgvector（安裝複雜，收益不高）
 
-**Hybrid Search**
-- [ ] 實作 `HybridSearchService`：
-  - FTS5 搜尋（top-20）→ 結果集 A
-  - 向量搜尋（top-20，cosine similarity）→ 結果集 B
-  - RRF 合併（k=60）→ 最終 top-N
-- [ ] `search_ai_news` MCP tool 升級為 Hybrid Search（介面不變）
+**Hybrid Search**（`backend/app/embeddings/vector_search.py`）
+- [x] `vector_search()` — cosine similarity in-memory
+- [x] `hybrid_search()` — FTS5 + vector + RRF (k=60)
+- [x] `search_ai_news` MCP tool 升級為 Hybrid Search
+
+**Briefing 語意擴充（擴充版新增）**
+- [x] `semantic_augment_for_briefing()` — 每日 briefing 前語意搜尋 ai-technique 內容
+- [x] `digest_notifier._semantic_augment()` — 注入到 digest 流程，確保 briefing 有 ai-technique 文章
 
 **新增 MCP Tools**
-- [ ] `list_techniques()` → 回傳 `keywords.yaml` 中的群組名稱列表
-- [ ] `get_posts_by_technique(technique, days, limit)` → 查詢符合群組的文章
+- [x] `list_techniques()` — 回傳 keywords.yaml 群組列表
+- [x] `get_posts_by_technique(technique, days, limit)` — 語意 + label fallback 雙模式查詢
 
-**Commit message**：`feat: hybrid search (FTS5 + embedding + RRF), list_techniques MCP tool`
+**新增依賴**：`sentence-transformers>=3.0.0`, `numpy>=1.26.0`
 
 ---
 
@@ -246,5 +249,5 @@
 | 4 | 關鍵字擴充與新 Reddit 來源 | ✅ 完成 | 2026-04-12 | `feat: expand keywords with ai_collaboration_techniques, add ClaudeAI/PromptEngineering subreddits` |
 | 觀察期 | 評估 threshold 與 Group 2 優先序 | 🔵 進行中 | — | — |
 | 5 | RSS Fetcher | ⬜ 待執行 | — | — |
-| 6 | Hybrid Search + Embedding | ⬜ 待執行 | — | — |
+| 6 | Hybrid Search + Embedding（擴充） | ✅ 完成 | 2026-04-12 | `feat: hybrid search (FTS5+embedding+RRF), briefing semantic augmentation` |
 | 7 | 設定檔框架完善 | ⬜ 待執行 | — | — |

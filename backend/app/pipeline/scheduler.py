@@ -51,7 +51,7 @@ def build_scheduler(
     return sched
 
 
-def _make_fetch_job(settings, session_factory) -> callable:
+def _make_fetch_job(settings, session_factory, embedding_service=None) -> callable:
     """Return a callable that builds a fresh session + pipeline per invocation."""
     from app.fetcher.hn_fetcher import HackerNewsFetcher
     from app.fetcher.reddit_fetcher import RedditFetcher
@@ -104,6 +104,7 @@ def _make_fetch_job(settings, session_factory) -> callable:
                 news_store=store,
                 fetcher=fetcher,
                 scorer=scorer,
+                embedding_service=embedding_service,
             )
             pipeline.run()
         except Exception:
@@ -118,7 +119,7 @@ def _make_fetch_job(settings, session_factory) -> callable:
 _DIGEST_COOLDOWN_MINUTES = 30
 
 
-def _make_digest_job(settings, session_factory) -> callable:
+def _make_digest_job(settings, session_factory, embedding_service=None) -> callable:
     """Return a callable that builds a fresh session + notifier per invocation.
 
     Includes a 30-minute cooldown guard: if the last digest ran less than
@@ -160,6 +161,7 @@ def _make_digest_job(settings, session_factory) -> callable:
                 briefings_output_dir=settings.briefings_output_dir_resolved,
                 user_context=settings.user_context,
                 highlight_scorer_enabled=settings.FEATURES.get("highlight_scorer", False),
+                embedding_service=embedding_service,
             )
             notifier.run()
             store.set_last_digest_at(datetime.now(timezone.utc))
@@ -205,8 +207,20 @@ def start_scheduler() -> None:
     from app.config import settings
     from app.api.deps import _SessionLocal
 
-    fetch_job = _make_fetch_job(settings, _SessionLocal)
-    digest_job = _make_digest_job(settings, _SessionLocal)
+    # Set up embedding service if feature is enabled
+    embedding_service = None
+    if settings.FEATURES.get("embeddings"):
+        from app.embeddings.embedding_service import EmbeddingService
+        embedding_service = EmbeddingService(
+            model_name=settings.embedding_model,
+            use_local=not bool(settings.hf_api_token),
+            hf_api_token=settings.hf_api_token,
+        )
+        embedding_service.warmup()
+        logger.info("EmbeddingService warmed up: %s", settings.embedding_model)
+
+    fetch_job = _make_fetch_job(settings, _SessionLocal, embedding_service=embedding_service)
+    digest_job = _make_digest_job(settings, _SessionLocal, embedding_service=embedding_service)
 
     weekly_job = None
     if settings.FEATURES.get("weekly_briefing"):

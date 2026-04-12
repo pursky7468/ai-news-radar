@@ -106,6 +106,13 @@ class NewsStore:
         )
         self._session.flush()
 
+    def update_post_embedding(self, post_id: int, embedding_bytes: bytes) -> None:
+        """Store serialized embedding blob for a post."""
+        self._session.query(Post).filter(Post.id == post_id).update(
+            {"embedding": embedding_bytes}, synchronize_session="fetch"
+        )
+        self._session.flush()
+
     def rollback(self) -> None:
         """Roll back the current transaction, resetting any pending error state."""
         self._session.rollback()
@@ -248,6 +255,29 @@ class NewsStore:
         if since is not None:
             q = q.filter(Post.posted_at >= since)
         return q.order_by(Post.relevance_score.desc().nullslast()).limit(limit).all()
+
+    def get_posts_without_embedding(self, limit: int = 100) -> list[Post]:
+        """Return posts that have no embedding yet (for backfill)."""
+        return (
+            self._session.query(Post)
+            .filter(Post.embedding.is_(None))
+            .order_by(Post.posted_at.desc())
+            .limit(limit)
+            .all()
+        )
+
+    def get_posts_with_embeddings(
+        self,
+        since=None,
+        is_relevant: Optional[bool] = None,
+    ) -> list[Post]:
+        """Return all posts that have an embedding stored."""
+        q = self._session.query(Post).filter(Post.embedding.isnot(None))
+        if is_relevant is not None:
+            q = q.filter(Post.is_relevant == is_relevant)
+        if since is not None:
+            q = q.filter(Post.posted_at >= since)
+        return q.all()
 
     def get_post_by_url(self, url: str) -> Optional[Post]:
         """Return the first Post matching the given URL, or None."""

@@ -31,6 +31,7 @@ class DigestNotifier:
         user_context: str = "",
         highlight_scorer_enabled: bool = False,
         highlight_weights: Optional[dict] = None,
+        embedding_service=None,
     ) -> None:
         self._store = news_store
         self._smtp = smtp_config
@@ -45,6 +46,7 @@ class DigestNotifier:
         self._user_context = user_context
         self._highlight_scorer_enabled = highlight_scorer_enabled
         self._highlight_weights = highlight_weights
+        self._embedding_service = embedding_service
 
     # ------------------------------------------------------------------
     # Orchestration
@@ -54,6 +56,13 @@ class DigestNotifier:
         posts = self.generate_digest(reference_time=reference_time)
         if not posts:
             return {"posts_included": 0, "email_sent": False, "webhook_sent": False}
+
+        # Semantic augmentation — add ai-technique posts missed by keyword scoring
+        if self._embedding_service is not None:
+            technique_posts = self._semantic_augment(posts)
+            if technique_posts:
+                logger.info("DigestNotifier: adding %d semantic ai-technique posts", len(technique_posts))
+                posts = posts + technique_posts
 
         # AI summarization — optional, gated by GROQ_API_KEY or GEMINI_API_KEY
         report_markdown: Optional[str] = None
@@ -162,6 +171,18 @@ class DigestNotifier:
             gen.generate(report_markdown, date=reference_time)
         except Exception as exc:
             logger.error("Briefing generation failed: %s", exc)
+
+    def _semantic_augment(self, existing_posts: list[Post], n: int = 5) -> list[Post]:
+        """Find posts semantically relevant to AI collaboration techniques
+        that keyword scoring may have missed."""
+        try:
+            from app.embeddings.vector_search import semantic_augment_for_briefing
+            return semantic_augment_for_briefing(
+                existing_posts, self._embedding_service, self._store, n=n
+            )
+        except Exception as exc:
+            logger.warning("DigestNotifier: semantic augmentation failed — %s", exc)
+            return []
 
     # ------------------------------------------------------------------
     # Digest generation

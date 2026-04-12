@@ -89,6 +89,11 @@ class Settings(BaseSettings):
     feature_weekly_briefing: bool = False
     feature_highlight_scorer: bool = False
     feature_bookmarks: bool = False
+    feature_embeddings: bool = False
+
+    # Embeddings
+    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
+    hf_api_token: str = ""  # fallback: HF Inference API when set and feature_embeddings=True
 
     # Personalization
     user_context: str = ""
@@ -114,6 +119,7 @@ class Settings(BaseSettings):
             "weekly_briefing": self.feature_weekly_briefing,
             "highlight_scorer": self.feature_highlight_scorer,
             "bookmarks": self.feature_bookmarks,
+            "embeddings": self.feature_embeddings,
         }
 
     @property
