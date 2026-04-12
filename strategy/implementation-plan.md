@@ -244,7 +244,7 @@
 | 3 | v2 Bug 修復 | ✅ 完成 | 2026-04-12 | `fix: digest async 202, per-channel sent flags (migration 008), crash loop cooldown` |
 | 3 | v2 Bug 修復 | ✅ 完成 | 2026-04-12 | `fix: digest async 202, per-channel sent flags (migration 008), crash loop cooldown` |
 | 4 | 關鍵字擴充與新 Reddit 來源 | ✅ 完成 | 2026-04-12 | `feat: expand keywords with ai_collaboration_techniques, add ClaudeAI/PromptEngineering subreddits` |
-| 觀察期 | 評估 threshold 與 Group 2 優先序 | ⬜ 待執行 | — | — |
+| 觀察期 | 評估 threshold 與 Group 2 優先序 | 🔵 進行中 | — | — |
 | 5 | RSS Fetcher | ⬜ 待執行 | — | — |
 | 6 | Hybrid Search + Embedding | ⬜ 待執行 | — | — |
 | 7 | 設定檔框架完善 | ⬜ 待執行 | — | — |
