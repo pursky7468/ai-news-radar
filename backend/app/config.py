@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     hn_fetch_limit: int = 100
 
     # Reddit
-    reddit_subreddits: str = "MachineLearning,LocalLLaMA,singularity,artificial"
+    reddit_subreddits: str = "MachineLearning,LocalLLaMA,singularity,artificial,ClaudeAI,PromptEngineering"
     reddit_keywords: str = ""
     reddit_fetch_limit: int = 100
 

@@ -290,7 +290,7 @@ npx playwright test e2e/dashboard.spec.js --reporter=line
 | `API_KEY` | 是 | Dashboard → Backend 的 API 金鑰（自訂） |
 | `HN_KEYWORDS` | 否 | Hacker News 搜尋關鍵字，逗號分隔（預設：`ai agent,LLM,RAG,MCP,...`） |
 | `HN_FETCH_LIMIT` | 否 | HN 每次 fetch 最多幾筆（預設 100） |
-| `REDDIT_SUBREDDITS` | 否 | 監控的 subreddits，逗號分隔（預設：`MachineLearning,LocalLLaMA,...`） |
+| `REDDIT_SUBREDDITS` | 否 | 監控的 subreddits，逗號分隔（預設：`MachineLearning,LocalLLaMA,singularity,artificial,ClaudeAI,PromptEngineering`） |
 | `REDDIT_KEYWORDS` | 否 | Reddit 全站搜尋關鍵字（選填） |
 | `REDDIT_FETCH_LIMIT` | 否 | Reddit 每次 fetch 最多幾筆（預設 100） |
 | `GITHUB_MONITORED_REPOS` | 否 | 監控 release 的 repo，逗號分隔（`owner/repo` 格式） |

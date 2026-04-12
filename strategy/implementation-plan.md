@@ -123,42 +123,23 @@
 
 ### Phase 4：關鍵字擴充與新 Reddit 來源
 
-**狀態**：⬜ 待執行
+**狀態**：✅ 完成
+**完成日期**：2026-04-12
+**Commit**：`feat: expand keywords with ai_collaboration_techniques, add ClaudeAI/PromptEngineering subreddits`
 **目標**：讓 briefing 開始捕捉「AI 協作技巧」維度的內容
 
 #### Checklist
 
 **keywords.yaml**
-- [ ] 新增 `ai_collaboration_techniques` 群組（high_weight + standard_weight）
-  ```yaml
-  ai_collaboration_techniques:
-    high_weight:
-      - graph memory
-      - memory graph
-      - agent memory
-      - claude.md
-      - CLAUDE.md
-      - system prompt pattern
-      - agentic workflow
-      - multi-agent context
-      - context window management
-      - tool use pattern
-      - knowledge graph agent
-      - long-term memory LLM
-      - agent orchestration
-    standard_weight:
-      - prompt engineering
-      - vibe coding
-      - AI workflow
-      - MCP server
-  ```
-- [ ] 確認新群組的 label 映射（建議：`ai-technique`）
-- [ ] 在 `relevance_scorer.py` 的 `_GROUP_LABEL_MAP` 新增對應映射
+- [x] 新增 `ai_collaboration_techniques` 群組（high_weight + standard_weight）
+  - high_weight: graph memory, memory graph, agent memory, claude.md, CLAUDE.md, system prompt pattern, agentic workflow, multi-agent context, context window management, tool use pattern, knowledge graph agent, long-term memory LLM, agent orchestration
+  - standard_weight: prompt engineering, vibe coding, AI workflow, MCP server
+- [x] label 映射：`ai-technique`
+- [x] 在 `relevance_scorer.py` 的 `_GROUP_LABEL_MAP` 新增對應映射
 
-**新增 Reddit Subreddits（`config.py` 或 `.env`）**
-- [ ] `reddit_subreddits` 預設值加入 `ClaudeAI,PromptEngineering`
-- [ ] 確認新 subreddits 的 fetch 不超過 Reddit API rate limit
-- [ ] 更新 `README.md` 的環境變數說明表格
+**新增 Reddit Subreddits（`config.py`）**
+- [x] `reddit_subreddits` 預設值加入 `ClaudeAI,PromptEngineering`
+- [x] 更新 `README.md` 的環境變數說明表格
 
 **Commit message**：`feat: expand keywords with ai_collaboration_techniques, add ClaudeAI/PromptEngineering subreddits`
 
@@ -262,7 +243,7 @@
 | 2 | Briefing 品質修復 | ✅ 完成 | 2026-04-12 | `feat: fix briefing quality — language validation, 4-dimension structure, highlight score` |
 | 3 | v2 Bug 修復 | ✅ 完成 | 2026-04-12 | `fix: digest async 202, per-channel sent flags (migration 008), crash loop cooldown` |
 | 3 | v2 Bug 修復 | ✅ 完成 | 2026-04-12 | `fix: digest async 202, per-channel sent flags (migration 008), crash loop cooldown` |
-| 4 | 關鍵字擴充與新 Reddit 來源 | ⬜ 待執行 | — | — |
+| 4 | 關鍵字擴充與新 Reddit 來源 | ✅ 完成 | 2026-04-12 | `feat: expand keywords with ai_collaboration_techniques, add ClaudeAI/PromptEngineering subreddits` |
 | 觀察期 | 評估 threshold 與 Group 2 優先序 | ⬜ 待執行 | — | — |
 | 5 | RSS Fetcher | ⬜ 待執行 | — | — |
 | 6 | Hybrid Search + Embedding | ⬜ 待執行 | — | — |

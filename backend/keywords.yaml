@@ -27,6 +27,20 @@ high_weight:
     - dspy
     - instructor
     - guidance
+  ai_collaboration_techniques:
+    - graph memory
+    - memory graph
+    - agent memory
+    - claude.md
+    - CLAUDE.md
+    - system prompt pattern
+    - agentic workflow
+    - multi-agent context
+    - context window management
+    - tool use pattern
+    - knowledge graph agent
+    - long-term memory LLM
+    - agent orchestration
 
 standard_weight:
   model:
@@ -54,5 +68,10 @@ standard_weight:
     - ai research
     - ai model
     - foundation model
+  ai_collaboration_techniques:
+    - prompt engineering
+    - vibe coding
+    - AI workflow
+    - MCP server
 
 threshold: 5

@@ -86,6 +86,7 @@ _GROUP_LABEL_MAP: dict[str, str] = {
     "tool": "ai-tool",
     "model": "ai-model",
     "ai-general": "ai-model",
+    "ai_collaboration_techniques": "ai-technique",
 }
 
 # Weight per tier
