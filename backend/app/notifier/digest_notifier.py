@@ -193,7 +193,25 @@ class DigestNotifier:
         if self._lookback_hours > 0:
             ref = reference_time or datetime.now(timezone.utc)
             since = ref - timedelta(hours=self._lookback_hours)
-        return self._store.get_unsent_relevant_posts(limit=self._top_n, since=since)
+
+        # Fetch a larger candidate pool when semantic re-ranking is available,
+        # so the re-ranker has room to surface lower-ranked but more relevant posts.
+        candidate_limit = self._top_n * 2 if self._embedding_service and self._user_context else self._top_n
+        candidates = self._store.get_unsent_relevant_posts(limit=candidate_limit, since=since)
+
+        if self._embedding_service and self._user_context and len(candidates) > self._top_n:
+            try:
+                from app.embeddings.vector_search import rank_by_user_context
+                candidates = rank_by_user_context(
+                    candidates,
+                    user_context=self._user_context,
+                    embedding_service=self._embedding_service,
+                )
+                logger.info("DigestNotifier: re-ranked %d candidates by user context", len(candidates))
+            except Exception as exc:
+                logger.warning("DigestNotifier: user-context re-ranking failed — %s", exc)
+
+        return candidates[: self._top_n]
 
     # ------------------------------------------------------------------
     # Email delivery

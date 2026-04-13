@@ -465,3 +465,98 @@ def test_run_does_not_mark_webhook_sent_on_failure(news_store):
 
     posts = news_store.query_posts()
     assert posts[0].webhook_sent is False
+
+
+# ---------------------------------------------------------------------------
+# Phase B: semantic re-ranking via user_context
+# ---------------------------------------------------------------------------
+
+def test_generate_digest_fetches_double_pool_when_reranking_enabled(news_store):
+    """When embedding_service + user_context are set, candidate pool is 2x top_n."""
+    for i in range(30):
+        _insert_relevant_post(news_store, f"rerank_{i}", score=10.0)
+
+    mock_svc = MagicMock()
+    mock_svc.embed.return_value = [0.1] * 384
+
+    notifier = DigestNotifier(
+        news_store=news_store,
+        smtp_config=None,
+        webhook_url=None,
+        top_n=10,
+        embedding_service=mock_svc,
+        user_context="I build AI agents",
+    )
+
+    with patch("app.embeddings.vector_search.rank_by_user_context", return_value=list(range(20))) as mock_rank:
+        # patch returns a list of 20 ints (not posts) to avoid type issues
+        with patch.object(news_store, "get_unsent_relevant_posts", wraps=news_store.get_unsent_relevant_posts) as mock_store:
+            notifier.generate_digest()
+            # Should have requested 20 candidates (top_n * 2)
+            mock_store.assert_called_once()
+            call_limit = mock_store.call_args[1].get("limit") or mock_store.call_args[0][0]
+            assert call_limit == 20
+
+
+def test_generate_digest_skips_reranking_without_user_context(news_store):
+    """No re-ranking when user_context is empty, even with embedding_service."""
+    for i in range(15):
+        _insert_relevant_post(news_store, f"noctx_{i}", score=10.0)
+
+    mock_svc = MagicMock()
+    notifier = DigestNotifier(
+        news_store=news_store,
+        smtp_config=None,
+        webhook_url=None,
+        top_n=5,
+        embedding_service=mock_svc,
+        user_context="",  # empty — no re-ranking
+    )
+
+    with patch("app.embeddings.vector_search.rank_by_user_context") as mock_rank:
+        notifier.generate_digest()
+        mock_rank.assert_not_called()
+
+
+def test_generate_digest_skips_reranking_without_embedding_service(news_store):
+    """No re-ranking when embedding_service is None."""
+    for i in range(15):
+        _insert_relevant_post(news_store, f"nosvc_{i}", score=10.0)
+
+    notifier = DigestNotifier(
+        news_store=news_store,
+        smtp_config=None,
+        webhook_url=None,
+        top_n=5,
+        embedding_service=None,
+        user_context="I build AI agents",
+    )
+
+    with patch("app.embeddings.vector_search.rank_by_user_context") as mock_rank:
+        notifier.generate_digest()
+        mock_rank.assert_not_called()
+
+
+def test_generate_digest_returns_top_n_after_reranking(news_store):
+    """Final result is always capped at top_n even after re-ranking."""
+    for i in range(30):
+        _insert_relevant_post(news_store, f"cap_{i}", score=10.0)
+
+    mock_svc = MagicMock()
+    mock_svc.embed.return_value = [0.1] * 384
+
+    notifier = DigestNotifier(
+        news_store=news_store,
+        smtp_config=None,
+        webhook_url=None,
+        top_n=5,
+        embedding_service=mock_svc,
+        user_context="context",
+    )
+
+    # rank_by_user_context is imported inside the method, patch at source module
+    with patch("app.embeddings.vector_search.rank_by_user_context") as mock_rank:
+        mock_candidates = [MagicMock() for _ in range(10)]
+        mock_rank.return_value = mock_candidates
+        result = notifier.generate_digest()
+        assert len(result) == 5

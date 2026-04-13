@@ -119,6 +119,63 @@ def hybrid_search(
     return [id_to_post[pid] for pid, _ in ranked[:top_k]]
 
 
+def rank_by_user_context(
+    posts: list,
+    user_context: str,
+    embedding_service: EmbeddingService,
+    relevance_weight: float = 0.6,
+    semantic_weight: float = 0.4,
+) -> list:
+    """Re-rank posts by blending relevance_score with semantic similarity to user_context.
+
+    Useful when many posts share the same relevance_score (e.g., 10.0) and a
+    secondary signal is needed to surface the most personally relevant content.
+
+    Formula:
+        final_score = relevance_score * relevance_weight
+                    + cosine_similarity * 10 * semantic_weight
+
+    Args:
+        posts:            Candidate posts (already filtered by relevance_score).
+        user_context:     Free-text description of what the user cares about.
+        embedding_service: Used to embed user_context.
+        relevance_weight: Weight for keyword relevance_score (default 0.6).
+        semantic_weight:  Weight for semantic similarity, scaled to 0–10 (default 0.4).
+
+    Returns:
+        Posts sorted by final_score descending. Posts without embeddings are
+        placed at the end, preserving their original relative order.
+    """
+    if not user_context or not posts:
+        return posts
+
+    try:
+        context_vec = np.array(embedding_service.embed(user_context), dtype=np.float32)
+    except Exception as exc:
+        logger.warning("rank_by_user_context: embed failed, returning original order — %s", exc)
+        return posts
+
+    with_score: list[tuple[float, object]] = []
+    without_embedding: list = []
+
+    for post in posts:
+        if not getattr(post, "embedding", None):
+            without_embedding.append(post)
+            continue
+        try:
+            post_vec = np.array(deserialize(post.embedding), dtype=np.float32)
+            sim = _cosine_similarity(context_vec, post_vec)
+            relevance = float(getattr(post, "relevance_score", 0) or 0)
+            final = relevance * relevance_weight + sim * 10 * semantic_weight
+            with_score.append((final, post))
+        except Exception as exc:
+            logger.debug("rank_by_user_context: skipping post %d — %s", getattr(post, "id", "?"), exc)
+            without_embedding.append(post)
+
+    with_score.sort(key=lambda x: x[0], reverse=True)
+    return [p for _, p in with_score] + without_embedding
+
+
 def semantic_augment_for_briefing(
     existing_posts: list,
     embedding_service: EmbeddingService,
