@@ -183,9 +183,14 @@ class NewsStore:
         per_page: int = 20,
     ) -> list[Post]:
         # FTS5 path: fetch matching rowids then filter the main query
+        fts_active = False
         if fts_enabled and keyword:
             fts_ids = self._fts_search(keyword)
-            q = self._session.query(Post).filter(Post.id.in_(fts_ids))
+            if fts_ids is not None:
+                fts_active = True
+                q = self._session.query(Post).filter(Post.id.in_(fts_ids))
+            else:
+                q = self._session.query(Post)  # FTS unavailable, fall through to ilike
         else:
             q = self._session.query(Post)
 
@@ -193,7 +198,7 @@ class NewsStore:
             q,
             label=label, min_score=min_score, from_date=from_date,
             to_date=to_date, since=since,
-            keyword=keyword if not (fts_enabled and keyword) else None,
+            keyword=keyword if not fts_active else None,
             source=source, is_relevant=is_relevant,
             date_from=date_from, date_to=date_to,
         )
@@ -219,23 +224,28 @@ class NewsStore:
         date_to: Optional[date] = None,
         fts_enabled: bool = False,
     ) -> int:
+        fts_active = False
         if fts_enabled and keyword:
             fts_ids = self._fts_search(keyword)
-            q = self._session.query(func.count(Post.id)).filter(Post.id.in_(fts_ids))
+            if fts_ids is not None:
+                fts_active = True
+                q = self._session.query(func.count(Post.id)).filter(Post.id.in_(fts_ids))
+            else:
+                q = self._session.query(func.count(Post.id))
         else:
             q = self._session.query(func.count(Post.id))
         q = self._apply_filters(
             q,
             label=label, min_score=min_score, from_date=from_date,
             to_date=to_date, since=since,
-            keyword=keyword if not (fts_enabled and keyword) else None,
+            keyword=keyword if not fts_active else None,
             source=source, is_relevant=is_relevant,
             date_from=date_from, date_to=date_to,
         )
         return q.scalar() or 0
 
-    def _fts_search(self, keyword: str) -> list[int]:
-        """Return Post IDs matching keyword via FTS5."""
+    def _fts_search(self, keyword: str) -> list[int] | None:
+        """Return Post IDs matching keyword via FTS5, or None if FTS table unavailable."""
         try:
             rows = self._session.execute(
                 text("SELECT rowid FROM articles_fts WHERE articles_fts MATCH :q ORDER BY rank"),
@@ -243,7 +253,7 @@ class NewsStore:
             ).fetchall()
             return [r[0] for r in rows]
         except Exception:
-            return []
+            return None
 
     def get_unsent_relevant_posts(
         self, limit: int = 20, since: Optional[datetime] = None
