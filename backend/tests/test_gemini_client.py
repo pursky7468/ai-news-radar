@@ -35,14 +35,32 @@ def test_summarize_post_returns_string(client, mock_genai):
     assert result == "AI 代理人新突破"
 
 
-def test_summarize_post_truncates_content_to_500(client, mock_genai):
+def test_summarize_post_truncates_content_to_1500(client, mock_genai):
     mock_model = mock_genai.GenerativeModel.return_value
     mock_model.generate_content.return_value = MagicMock(text="摘要")
-    long_content = "x" * 1000
+    long_content = "x" * 2000
     client.summarize_post(_make_post(content=long_content))
     prompt_used = mock_model.generate_content.call_args[0][0]
-    assert "x" * 500 in prompt_used
-    assert "x" * 501 not in prompt_used
+    assert "x" * 1500 in prompt_used
+    assert "x" * 1501 not in prompt_used
+
+
+def test_summarize_post_uses_reddit_prompt(client, mock_genai):
+    mock_model = mock_genai.GenerativeModel.return_value
+    mock_model.generate_content.return_value = MagicMock(text="摘要")
+    client.summarize_post(_make_post(source="reddit"))
+    prompt_used = mock_model.generate_content.call_args[0][0]
+    assert "Reddit" in prompt_used
+    assert "具體問題" in prompt_used
+
+
+def test_summarize_post_uses_github_prompt(client, mock_genai):
+    mock_model = mock_genai.GenerativeModel.return_value
+    mock_model.generate_content.return_value = MagicMock(text="摘要")
+    client.summarize_post(_make_post(source="github"))
+    prompt_used = mock_model.generate_content.call_args[0][0]
+    assert "GitHub" in prompt_used
+    assert "設計決策" in prompt_used
 
 
 # ---------------------------------------------------------------------------

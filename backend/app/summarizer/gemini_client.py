@@ -8,13 +8,16 @@ import google.generativeai as genai
 
 logger = logging.getLogger(__name__)
 
-_PROMPT_TEMPLATE = """\
-請用繁體中文在100字以內摘要以下AI相關內容的重點：
-來源：{source}
-內容：{content}
-請直接回答摘要，不需要額外說明。"""
-
 _FALLBACK_LEN = 50
+
+
+def _build_prompt(source: str, content: str) -> str:
+    """Return source-aware summarization prompt. Imported from groq_client for DRY."""
+    from app.summarizer.groq_client import _build_prompt as _bp
+    return _bp(source, content)
+
+
+_CONTENT_LIMIT = 1500
 
 
 class GeminiClient:
@@ -24,10 +27,10 @@ class GeminiClient:
         self._model_name = model
 
     def summarize_post(self, post) -> str:
-        """Return zh-TW summary (≤100 chars). Retries once on 429; falls back to excerpt."""
-        content = (getattr(post, "content", None) or "")[:500]
+        """Return zh-TW summary with technical insight. Retries once on 429; falls back to excerpt."""
+        content = (getattr(post, "content", None) or "")[:_CONTENT_LIMIT]
         source = getattr(post, "source", "unknown")
-        prompt = _PROMPT_TEMPLATE.format(source=source, content=content)
+        prompt = _build_prompt(source, content)
 
         for attempt in range(2):
             try:
