@@ -99,25 +99,73 @@ class SummaryGenerator:
 # Helpers
 # ------------------------------------------------------------------
 
+_DISCUSSION_SIGNALS = (
+    "i built", "i've been", "i am", "i'm building", "i made", "i created",
+    "we built", "we've been", "help with", "struggling with", "question:",
+    "how do i", "how to", "what's the best", "advice on", "sharing my",
+    "my experience", "lessons learned", "after", "weeks of", "months of",
+    "has anyone", "does anyone",
+)
+
+_ANALYSIS_SIGNALS = (
+    "benchmark", "comparison", "vs ", " vs.", "evaluation", "test result",
+    "performance", "accuracy", "dataset", "measured", "compared",
+)
+
+
+def _post_type_label(post) -> str:
+    """Return a short type label for the post to aid briefing LLM selection."""
+    source = getattr(post, "source", "") or ""
+    content_lower = (getattr(post, "content", "") or "").lower()
+
+    if source == "reddit":
+        if any(sig in content_lower for sig in _DISCUSSION_SIGNALS):
+            return "[討論]"
+        if any(sig in content_lower for sig in _ANALYSIS_SIGNALS):
+            return "[實測]"
+        return "[社群]"
+
+    if source == "github":
+        if any(sig in content_lower for sig in _ANALYSIS_SIGNALS):
+            return "[實測]"
+        return "[工具]"
+
+    if source == "hackernews":
+        if any(sig in content_lower for sig in _ANALYSIS_SIGNALS):
+            return "[實測]"
+        if any(sig in content_lower for sig in _DISCUSSION_SIGNALS):
+            return "[討論]"
+        return "[新聞]"
+
+    return "[其他]"
+
+
 def _format_post_entry(post) -> list[str]:
     title = (getattr(post, "content", "") or "")[:60]
     source = getattr(post, "source", "")
+    score = getattr(post, "relevance_score", None)
     points = getattr(post, "points", None)
     url = getattr(post, "url", "") or ""
     discussion_url = getattr(post, "discussion_url", None)
     summary = getattr(post, "summary_zh", None) or (getattr(post, "content", "") or "")[:50] + "…"
+    type_label = _post_type_label(post)
 
     source_badge = {"hackernews": "HN", "reddit": "Reddit", "github": "GitHub"}.get(source, source)
     badge_str = f"`{source_badge}`"
     if points:
         badge_str += f" ▲ {points}"
+    try:
+        if score is not None:
+            badge_str += f" score={float(score):.1f}"
+    except (TypeError, ValueError):
+        pass
 
     links = f"🔗 [原文]({url})"
     if source == "hackernews" and discussion_url:
         links += f" · [HN 討論]({discussion_url})"
 
     return [
-        f"- **{title}** ({badge_str})",
+        f"- **{type_label} {title}** ({badge_str})",
         f"  {summary}",
         f"  {links}",
         "",
