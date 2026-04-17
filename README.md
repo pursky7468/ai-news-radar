@@ -4,7 +4,7 @@
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.11+-green.svg)
-![Tests](https://img.shields.io/badge/tests-180%20passed-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-249%20passed-brightgreen.svg)
 ![MCP](https://img.shields.io/badge/MCP-server%20included-purple.svg)
 
 ---
@@ -378,16 +378,18 @@ npx playwright test e2e/dashboard.spec.js --reporter=line
 - REST API + Next.js dashboard
 - MCP Server (3 tools)
 
-### v2 — In Progress 🚧
+### v2 — Completed ✅
 - [x] ArXiv as 4th data source (cs.AI, cs.LG, cs.CL)
 - [x] SQLite FTS5 full-text search with date range filtering
 - [x] Weekly briefing + trend summary
 - [x] Top 3 algorithmic daily highlight
-- [x] Expanded MCP tools (`get_trending_tools`, `get_weekly_summary`)
+- [x] Expanded MCP tools (7 tools total: `get_trending_tools`, `get_weekly_summary`, `list_techniques`, `get_posts_by_technique`)
 - [x] Article bookmarks + personal notes
+- [x] Semantic embedding + Hybrid Search (FTS5 + vector + RRF)
+- [x] Briefing quality improvements — source-aware summarization, USER_CONTEXT semantic re-ranking, type-label selection criteria, anti-hallucination constraints
+- [x] `regenerate_briefings.py` — backfill historical briefings with improved prompt
 
 ### v3 — Planned 📋
-- Semantic search (embedding-based)
 - Official changelog RSS feeds (OpenAI, Anthropic, Google)
 - Trend visualization (keyword frequency over time)
 - Multi-user support
