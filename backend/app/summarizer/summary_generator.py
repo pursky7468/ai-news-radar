@@ -154,7 +154,7 @@ def _format_post_entry(post) -> list[str]:
     points = getattr(post, "points", None)
     url = getattr(post, "url", "") or ""
     discussion_url = getattr(post, "discussion_url", None)
-    summary = getattr(post, "summary_zh", None) or (getattr(post, "content", "") or "")[:50] + "…"
+    summary = getattr(post, "summary_zh", None) or "（摘要待生成）"
     type_label = _post_type_label(post)
 
     # GitHub: use "owner/repo" as title; Reddit/HN: use first 80 chars of content

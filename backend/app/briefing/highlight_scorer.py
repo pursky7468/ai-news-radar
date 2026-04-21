@@ -72,7 +72,14 @@ def format_highlight_section(posts, reference_time: datetime | None = None, weig
     lines = ["## ⭐ 今日精選\n"]
     for p in posts:
         score = compute_highlight_score(p, reference_time=reference_time, weights=weights)
-        title = p.content[:80] if p.content else "(no title)"
+        # GitHub: use owner/repo name; others: use content[:80]
+        url = getattr(p, "url", "") or ""
+        source = getattr(p, "source", "")
+        if source == "github" and url:
+            parts = url.rstrip("/").split("/")
+            title = f"{parts[-2]}/{parts[-1]}" if len(parts) >= 2 else (p.content[:80] if p.content else "(no title)")
+        else:
+            title = p.content[:80] if p.content else "(no title)"
         lines.append(
             f"- **[{title}]({p.url})**"
             f" `{p.source}` 綜合分數: {score:.2f}\n"

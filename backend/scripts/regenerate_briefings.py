@@ -79,13 +79,19 @@ def regenerate_for_date(
 
     print(f"  [{date_str}] {len(posts)} posts -> assembling report...")
 
-    # Assemble report with Phase C type labels
+    # Summarize posts that have no summary_zh yet (Phase A prompts output zh-TW)
     from app.summarizer.summary_generator import SummaryGenerator as SG
     from app.summarizer.gemini_client import GeminiClient
 
-    # We don't re-summarize here — use existing summary_zh as-is
-    # Just assemble the report
     gemini_client = GeminiClient(api_key=settings.gemini_api_key or "", model=settings.gemini_model)
+
+    unsummarized = [p for p in posts if not getattr(p, "summary_zh", None)]
+    if unsummarized:
+        print(f"  [{date_str}] summarizing {len(unsummarized)} posts without summary_zh...")
+        gen = SG(gemini_client=gemini_client, store=store)
+        gen.summarize_batch(unsummarized)
+
+    # Assemble report with Phase C type labels
     gen = SG(gemini_client=gemini_client, store=store)
     report = gen.assemble_report(posts, date=date_str)
 
