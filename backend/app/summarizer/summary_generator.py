@@ -140,8 +140,15 @@ def _post_type_label(post) -> str:
     return "[其他]"
 
 
+def _repo_name_from_url(url: str) -> str:
+    """Extract 'owner/repo' from a GitHub URL, fallback to last path segment."""
+    parts = url.rstrip("/").split("/")
+    if len(parts) >= 2:
+        return f"{parts[-2]}/{parts[-1]}"
+    return parts[-1] if parts else url
+
+
 def _format_post_entry(post) -> list[str]:
-    title = (getattr(post, "content", "") or "")[:60]
     source = getattr(post, "source", "")
     score = getattr(post, "relevance_score", None)
     points = getattr(post, "points", None)
@@ -149,6 +156,12 @@ def _format_post_entry(post) -> list[str]:
     discussion_url = getattr(post, "discussion_url", None)
     summary = getattr(post, "summary_zh", None) or (getattr(post, "content", "") or "")[:50] + "…"
     type_label = _post_type_label(post)
+
+    # GitHub: use "owner/repo" as title; Reddit/HN: use first 80 chars of content
+    if source == "github" and url:
+        title = _repo_name_from_url(url)
+    else:
+        title = (getattr(post, "content", "") or "")[:80]
 
     source_badge = {"hackernews": "HN", "reddit": "Reddit", "github": "GitHub"}.get(source, source)
     badge_str = f"`{source_badge}`"
