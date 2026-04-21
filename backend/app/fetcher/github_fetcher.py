@@ -59,7 +59,7 @@ class GitHubFetcher:
 
     def _fetch_repos(self, keyword: str) -> list[SourcePost]:
         since_date = (datetime.now(timezone.utc) - timedelta(days=30)).strftime("%Y-%m-%d")
-        query = f"{keyword}+language:python+created:>{since_date}"
+        query = f"{keyword}+created:>{since_date}"
         collected: list[SourcePost] = []
         url: Optional[str] = (
             f"{_API_BASE}/search/repositories"

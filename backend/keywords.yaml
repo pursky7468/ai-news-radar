@@ -19,6 +19,15 @@ high_weight:
     - smolagents
     - rag
     - retrieval augmented
+    - ai worker
+    - ai workers
+    - ai employee
+    - ai employees
+    - ai workforce
+    - agent workforce
+    - agent roles
+    - agent team
+    - agent squad
   tool:
     - langchain
     - llamaindex

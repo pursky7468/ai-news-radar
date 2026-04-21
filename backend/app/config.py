@@ -26,7 +26,7 @@ class Settings(BaseSettings):
 
     # GitHub
     github_monitored_repos: str = "langchain-ai/langchain,microsoft/autogen,ollama/ollama,ggerganov/llama.cpp"
-    github_keywords: str = "ai agent,llm,rag"
+    github_keywords: str = "ai agent,llm,rag,mcp,agentic"
     github_fetch_limit: int = 30
     github_token: str = ""
 
