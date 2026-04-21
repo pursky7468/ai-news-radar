@@ -296,7 +296,7 @@ npx playwright test e2e/dashboard.spec.js --reporter=line
 | `REDDIT_KEYWORDS` | 否 | Reddit 全站搜尋關鍵字（選填） |
 | `REDDIT_FETCH_LIMIT` | 否 | Reddit 每次 fetch 最多幾筆（預設 100） |
 | `GITHUB_MONITORED_REPOS` | 否 | 監控 release 的 repo，逗號分隔（`owner/repo` 格式） |
-| `GITHUB_KEYWORDS` | 否 | GitHub repo 搜尋關鍵字（預設：`ai agent,llm,rag`） |
+| `GITHUB_KEYWORDS` | 否 | GitHub repo 搜尋關鍵字（預設：`ai agent,llm,rag,mcp,agentic`） |
 | `GITHUB_FETCH_LIMIT` | 否 | GitHub 每次 fetch 最多幾筆（預設 30） |
 | `GITHUB_TOKEN` | 否 | GitHub Personal Access Token（提升 Search API rate limit 到 30 rpm） |
 | `ARXIV_CATEGORIES` | 否 | ArXiv 分類，逗號分隔（預設：`cs.AI,cs.LG,cs.CL`） |
@@ -387,7 +387,9 @@ npx playwright test e2e/dashboard.spec.js --reporter=line
 - [x] Article bookmarks + personal notes
 - [x] Semantic embedding + Hybrid Search (FTS5 + vector + RRF)
 - [x] Briefing quality improvements — source-aware summarization, USER_CONTEXT semantic re-ranking, type-label selection criteria, anti-hallucination constraints
+- [x] Briefing bullets now show repo name (`owner/repo`) and include source URL
 - [x] `regenerate_briefings.py` — backfill historical briefings with improved prompt
+- [x] GitHub fetcher: removed `language:python` restriction, added `mcp`/`agentic` search keywords, expanded scoring vocabulary for AI workers/workforce terminology
 
 ### v3 — Planned 📋
 - Official changelog RSS feeds (OpenAI, Anthropic, Google)
