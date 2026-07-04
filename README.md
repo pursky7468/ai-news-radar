@@ -126,7 +126,7 @@ docker compose up --build
 |------|-----|
 | Backend API | http://localhost:8000 |
 | API 文件 (Swagger) | http://localhost:8000/docs |
-| Dashboard | http://localhost:3000 |
+| Dashboard | http://localhost:3004 |
 
 ### 3. 確認正常運行
 
@@ -244,7 +244,7 @@ EOF
 npm run dev
 ```
 
-Dashboard: http://localhost:3000
+Dashboard: http://localhost:3004
 
 ---
 
@@ -271,12 +271,12 @@ npm test
 
 ### E2E 測試（Playwright）
 
-**前置條件**：Backend (port 8000) 和 Dashboard (port 3000 或 3001) 都必須在跑。
+**前置條件**：Backend (port 8000) 和 Dashboard (port 3004) 都必須在跑。
 
 ```bash
 # 確認兩個服務都起來了
 curl http://localhost:8000/api/health
-curl http://localhost:3000
+curl http://localhost:3004
 
 # 跑 E2E
 npx playwright test e2e/dashboard.spec.js --reporter=line

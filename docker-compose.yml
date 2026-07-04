@@ -36,7 +36,7 @@ services:
       dockerfile: Dockerfile
     env_file: .env
     ports:
-      - "3000:3000"
+      - "3004:3000"
     depends_on:
       - api
     environment:
